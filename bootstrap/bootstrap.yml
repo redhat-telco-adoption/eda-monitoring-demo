@@ -81,7 +81,7 @@
       ansible.controller.execution_environment:
         name: "{{ project_name }}-ee"
         organization: "{{ aap_organization }}"
-        image: quay.io/redhat-telco-adoption/eda-monitoring-demo-ee
+        image: "{{ ee_image }}"
         pull: always
         state: present
         controller_host: "{{ aap_hostname }}"
