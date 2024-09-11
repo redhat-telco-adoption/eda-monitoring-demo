@@ -76,6 +76,19 @@
         validate_certs: false
       when: not project_result.changed
 
+    # Execution Environment Setup
+    - name: Create execution environment in AAP
+      ansible.controller.execution_environment:
+        name: "{{ project_name }}-ee"
+        organization: "{{ aap_organization }}"
+        image: quay.io/redhat-telco-adoption/eda-monitoring-demo-ee
+        pull: always
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
     # Inventory Setup
     - name: Create inventory in AAP
       ansible.controller.inventory:
@@ -99,6 +112,7 @@
         credentials:
           - "{{ project_name }}-aws-cred"
           - "{{ project_name }}-aap-cred"
+        execution_environment: "{{ project_name }}-ee"
         state: present
         controller_host: "{{ aap_hostname }}"
         controller_username: "{{ aap_username }}"

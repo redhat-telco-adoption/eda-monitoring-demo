@@ -18,6 +18,4 @@ instances:
     type: "t2.micro"
     count: 1
 
-aap_hostname: "{{ aap_hostname }}"
-aap_username: "{{ aap_username }}"
-aap_password: "{{ aap_password }}"
+aap_organization: "Default"
