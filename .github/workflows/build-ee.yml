@@ -31,7 +31,7 @@ jobs:
       env:
         CONTENT_HUB_TOKEN: ${{ secrets.CONTENT_HUB_TOKEN }}
       run: |
-        ansible-builder build -t eda-monitoring-demo-ee:latest --build-arg CONTENT_HUB_TOKEN=${CONTENT_HUB_TOKEN}
+        ansible-builder build -t eda-monitoring-demo-ee:latest --build-arg CONTENT_HUB_TOKEN=${{secrets.CONTENT_HUB_TOKEN}}
 
     - name: Log in to Quay.io
       run: |
