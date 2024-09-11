@@ -1,0 +1,16 @@
+To access the EC2 instances:
+1. The private key has been saved to: ./{{ project_name }}_ed25519
+2. SSH to an instance: ssh -i ./{{ project_name }}_ed25519 ec2-user@<public-ip>
+   (Replace <public-ip> with the actual public IP of the instance)
+
+{% for host_type in instances.keys() %}
+{{ host_type | capitalize }} server public IP(s):
+{% for instance in ec2_instances.results %}
+{% if instance.item.0 == host_type and instance.instance_ids %}
+  - {{ instance.instances[0].public_ip_address }}
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+Ansible inventory file has been generated at: ./inventory.ini

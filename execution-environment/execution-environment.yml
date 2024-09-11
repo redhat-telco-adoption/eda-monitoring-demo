@@ -1,0 +1,40 @@
+version: 3
+
+build_arg_defaults:
+  ANSIBLE_GALAXY_CLI_COLLECTION_OPTS: '-vvvv'
+
+dependencies:
+  galaxy: files/requirements.yml
+  python: files/requirements.txt
+  system: files/bindep.txt
+
+images:
+  base_image:
+    name: registry.redhat.io/ansible-automation-platform-24/ee-minimal-rhel9@sha256:f98512ebfdec6e71804e9e27d63416e68a8857ab3cc18fb6d0825cf8feea9e52
+
+options:
+  package_manager_path: /usr/bin/microdnf
+
+additional_build_steps:
+
+  prepend_base:
+    - RUN whoami
+    - RUN cat /etc/os-release
+    - RUN echo PKGMGR = $PKGMGR, PYCMD = $PYCMD
+  prepend_galaxy:
+    # SEE: https://ansible.readthedocs.io/projects/builder/en/latest/scenario_guides/scenario_custom/
+    - ARG CONTENT_HUB_TOKEN
+    - ENV ANSIBLE_GALAXY_SERVER_LIST=published,validated,community
+    - ENV ANSIBLE_GALAXY_SERVER_PUBLISHED_URL=https://console.redhat.com/api/automation-hub/content/published/
+    - ENV ANSIBLE_GALAXY_SERVER_PUBLISHED_AUTH_URL=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+    - ENV ANSIBLE_GALAXY_SERVER_PUBLISHED_TOKEN=${CONTENT_HUB_TOKEN}
+    - ENV ANSIBLE_GALAXY_SERVER_VALIDATED_URL=https://console.redhat.com/api/automation-hub/content/published/
+    - ENV ANSIBLE_GALAXY_SERVER_VALIDATED_AUTH_URL=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+    - ENV ANSIBLE_GALAXY_SERVER_VALIDATED_TOKEN=${CONTENT_HUB_TOKEN}
+    - ENV ANSIBLE_GALAXY_SERVER_COMMUNITY_URL=https://galaxy.ansible.com
+    
+
+
+
+
+

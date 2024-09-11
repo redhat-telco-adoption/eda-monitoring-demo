@@ -1,0 +1,166 @@
+---
+- name: Provision AWS Infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Create VPC
+      amazon.aws.ec2_vpc_net:
+        name: "{{ project_name }}-vpc"
+        cidr_block: "{{ vpc_cidr }}"
+        region: "{{ region }}"
+        tags:
+          Name: "{{ project_name }}-vpc"
+      register: vpc
+      tags:
+        - vpc
+        - network
+
+    - name: Create Internet Gateway
+      amazon.aws.ec2_vpc_igw:
+        vpc_id: "{{ vpc.vpc.id }}"
+        region: "{{ region }}"
+        state: present
+        tags:
+          Name: "{{ project_name }}-igw"
+      register: igw
+      tags:
+        - vpc
+        - network
+
+    - name: Create public subnets
+      amazon.aws.ec2_vpc_subnet:
+        state: present
+        vpc_id: "{{ vpc.vpc.id }}"
+        cidr: "{{ item.cidr }}"
+        az: "{{ region }}{{ item.az }}"
+        map_public: true
+        region: "{{ region }}"
+        tags:
+          Name: "{{ project_name }}-public-subnet-{{ item.az }}"
+      loop:
+        - { cidr: "{{ public_subnet_cidrs[0] }}", az: 'a' }
+        - { cidr: "{{ public_subnet_cidrs[1] }}", az: 'b' }
+      register: public_subnets
+      tags:
+        - vpc
+        - network
+
+    - name: Create public route table
+      amazon.aws.ec2_vpc_route_table:
+        vpc_id: "{{ vpc.vpc.id }}"
+        region: "{{ region }}"
+        tags:
+          Name: "{{ project_name }}-public-rt"
+        subnets: "{{ public_subnets.results | map(attribute='subnet.id') | list }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ igw.gateway_id }}"
+      tags:
+        - vpc
+        - network
+
+    - name: Create security group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-ec2-sg"
+        description: Security group for EC2 instances
+        vpc_id: "{{ vpc.vpc.id }}"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            ports: [22, 80, 443]
+            cidr_ip: 0.0.0.0/0
+          - proto: all
+            group_name: "{{ project_name }}-ec2-sg"
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+      register: security_group
+      tags:
+        - security
+
+    - name: Generate ED25519 key
+      community.crypto.openssh_keypair:
+        path: "./{{ project_name }}_ed25519"
+        type: ed25519
+      register: ssh_key
+      tags:
+        - ssh
+        - security
+
+    - name: Create EC2 key pair
+      amazon.aws.ec2_key:
+        name: "{{ project_name }}-ssh-key"
+        key_material: "{{ ssh_key.public_key }}"
+        region: "{{ region }}"
+      tags:
+        - ssh
+        - security
+
+    - name: Launch EC2 instances
+      amazon.aws.ec2_instance:
+        name: "{{ project_name }}-{{ item.0 }}-{{ item.1 + 1 }}"
+        instance_type: "{{ instances[item.0].type }}"
+        image_id: "{{ ec2_ami }}"
+        region: "{{ region }}"
+        vpc_subnet_id: "{{ public_subnets.results[item.1 % public_subnets.results | length].subnet.id }}"
+        security_group: "{{ security_group.group_id }}"
+        key_name: "{{ project_name }}-ssh-key"
+        network:
+          assign_public_ip: true
+        tags:
+          Name: "{{ project_name }}-{{ item.0 }}-{{ item.1 + 1 }}"
+        state: present
+      loop: "{{ instances.keys() | product(range(instances.values() | map(attribute='count') | max)) | list }}"
+      when: item.1 < instances[item.0].count
+      register: ec2_instances
+      tags:
+        - ec2
+
+    - name: Create Ansible inventory
+      ansible.builtin.template:
+        src: inventory.j2
+        dest: ./inventory.ini
+      tags:
+        - inventory
+
+    - name: Create inventory in Ansible Automation Platform
+      ansible.controller.inventory:
+        name: "{{ aap_inventory_name }}"
+        organization: "{{ aap_organization }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      tags:
+        - aap
+        - inventory
+
+    - name: Add hosts to AAP inventory
+      ansible.controller.host:
+        name: "{{ item.instances[0].public_dns_name }}"
+        inventory: "{{ aap_inventory_name }}"
+        variables:
+          ansible_host: "{{ item.instances[0].public_ip_address }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      loop: "{{ ec2_instances.results }}"
+      when: item.instances is defined
+      tags:
+        - aap
+        - inventory
+
+    - name: Output SSH instructions
+      ansible.builtin.debug:
+        msg: "{{ lookup('ansible.builtin.template', 'ssh_instructions.j2') }}"
+      tags:
+        - debug
+        - ssh

@@ -1,0 +1,25 @@
+---
+region: "us-east-2"
+project_name: "eda-demo"
+vpc_cidr: "10.0.0.0/16"
+public_subnet_cidrs:
+  - "10.0.1.0/24"
+  - "10.0.2.0/24"
+ec2_ami: "ami-0ba62214afa52bec7"  # RHEL 8 AMI ID in us-east-2 (Ohio)
+
+instances:
+  web:
+    type: "t2.micro"
+    count: 1
+  app:
+    type: "t2.micro"
+    count: 1
+  infra:
+    type: "t2.micro"
+    count: 1
+
+aap_hostname: "your-aap-instance-hostname"
+aap_username: "your-aap-username"
+aap_password: "your-aap-password"
+aap_inventory_name: "{{ project_name }}-inventory"
+aap_organization: "your-organization-name"
