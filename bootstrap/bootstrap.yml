@@ -49,6 +49,19 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
 
+    - name: Create Ansible Vault credential in AAP
+      ansible.controller.credential:
+        name: "{{ project_name }}-vault-cred"
+        credential_type: Vault
+        organization: "{{ aap_organization }}"
+        inputs:
+          vault_password: "{{ vault_password }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
     # Project Setup
     - name: Create or update project in AAP
       ansible.controller.project:

@@ -23,15 +23,8 @@
       retries: 3
       delay: 10
 
-    - name: Enable required repositories
-      community.general.rhsm_repository:
-        name:
-          - rhel-8-for-x86_64-baseos-rpms
-          - rhel-8-for-x86_64-appstream-rpms
-        state: enabled
-
     - name: Update all packages
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: '*'
         state: latest
         update_cache: true
