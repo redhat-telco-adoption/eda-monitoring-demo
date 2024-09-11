@@ -5,7 +5,7 @@
   gather_facts: false
 
   vars_files:
-    - vars.yml
+    - vars/main.yml
 
   tasks:
     - name: Create VPC
@@ -16,9 +16,6 @@
         tags:
           Name: "{{ project_name }}-vpc"
       register: vpc
-      tags:
-        - vpc
-        - network
 
     - name: Create Internet Gateway
       amazon.aws.ec2_vpc_igw:
@@ -28,9 +25,6 @@
         tags:
           Name: "{{ project_name }}-igw"
       register: igw
-      tags:
-        - vpc
-        - network
 
     - name: Create public subnets
       amazon.aws.ec2_vpc_subnet:
@@ -46,9 +40,6 @@
         - { cidr: "{{ public_subnet_cidrs[0] }}", az: 'a' }
         - { cidr: "{{ public_subnet_cidrs[1] }}", az: 'b' }
       register: public_subnets
-      tags:
-        - vpc
-        - network
 
     - name: Create public route table
       amazon.aws.ec2_vpc_route_table:
@@ -60,9 +51,6 @@
         routes:
           - dest: 0.0.0.0/0
             gateway_id: "{{ igw.gateway_id }}"
-      tags:
-        - vpc
-        - network
 
     - name: Create security group
       amazon.aws.ec2_security_group:
@@ -80,26 +68,18 @@
           - proto: all
             cidr_ip: 0.0.0.0/0
       register: security_group
-      tags:
-        - security
 
     - name: Generate ED25519 key
       community.crypto.openssh_keypair:
         path: "./{{ project_name }}_ed25519"
         type: ed25519
       register: ssh_key
-      tags:
-        - ssh
-        - security
 
     - name: Create EC2 key pair
       amazon.aws.ec2_key:
         name: "{{ project_name }}-ssh-key"
         key_material: "{{ ssh_key.public_key }}"
         region: "{{ region }}"
-      tags:
-        - ssh
-        - security
 
     - name: Launch EC2 instances
       amazon.aws.ec2_instance:
@@ -118,49 +98,32 @@
       loop: "{{ instances.keys() | product(range(instances.values() | map(attribute='count') | max)) | list }}"
       when: item.1 < instances[item.0].count
       register: ec2_instances
-      tags:
-        - ec2
-
-    - name: Create Ansible inventory
-      ansible.builtin.template:
-        src: inventory.j2
-        dest: ./inventory.ini
-      tags:
-        - inventory
-
-    - name: Create inventory in Ansible Automation Platform
-      ansible.controller.inventory:
-        name: "{{ aap_inventory_name }}"
-        organization: "{{ aap_organization }}"
-        state: present
-        controller_host: "{{ aap_hostname }}"
-        controller_username: "{{ aap_username }}"
-        controller_password: "{{ aap_password }}"
-        validate_certs: false  # Set to true in production with valid certs
-      tags:
-        - aap
-        - inventory
 
     - name: Add hosts to AAP inventory
       ansible.controller.host:
         name: "{{ item.instances[0].public_dns_name }}"
-        inventory: "{{ aap_inventory_name }}"
+        inventory: "{{ project_name }}-inventory"
         variables:
           ansible_host: "{{ item.instances[0].public_ip_address }}"
         state: present
         controller_host: "{{ aap_hostname }}"
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
-        validate_certs: false  # Set to true in production with valid certs
+        validate_certs: false
       loop: "{{ ec2_instances.results }}"
       when: item.instances is defined
-      tags:
-        - aap
-        - inventory
 
     - name: Output SSH instructions
       ansible.builtin.debug:
-        msg: "{{ lookup('ansible.builtin.template', 'ssh_instructions.j2') }}"
-      tags:
-        - debug
-        - ssh
+        msg: |
+          To access the EC2 instances:
+          1. The private key has been saved to: ./{{ project_name }}_ed25519
+          2. SSH to an instance: ssh -i ./{{ project_name }}_ed25519 ec2-user@<public-ip>
+             (Replace <public-ip> with the actual public IP of the instance)
+
+          Instance public IPs:
+          {% for instance in ec2_instances.results %}
+          {% if instance.instances is defined %}
+          - {{ instance.instances[0].public_ip_address }} ({{ instance.instances[0].tags.Name }})
+          {% endif %}
+          {% endfor %}

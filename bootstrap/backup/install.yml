@@ -1,0 +1,49 @@
+---
+- name: Update and Register Managed Hosts
+  hosts: all
+  become: true
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Ensure subscription-manager is installed
+      ansible.builtin.dnf:
+        name: subscription-manager
+        state: present
+
+    - name: Register with Red Hat Subscription Manager
+      community.general.redhat_subscription:
+        state: present
+        username: "{{ rhsm_username }}"
+        password: "{{ rhsm_password }}"
+        auto_attach: true
+      register: rhsm_register
+      until: rhsm_register is success
+      retries: 3
+      delay: 10
+
+    - name: Enable required repositories
+      community.general.rhsm_repository:
+        name:
+          - rhel-8-for-x86_64-baseos-rpms
+          - rhel-8-for-x86_64-appstream-rpms
+        state: enabled
+
+    - name: Update all packages
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        update_cache: true
+
+    - name: Reboot the system if required
+      ansible.builtin.reboot:
+        msg: "Rebooting due to system updates"
+        reboot_timeout: 600
+      when: ansible_pkg_mgr == 'yum' and ansible_yum.updates | default([]) | length > 0
+
+    - name: Ensure the system is properly configured
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'RedHat'
+          - ansible_distribution_major_version == '8'
+        msg: "This playbook is designed for RHEL 8 systems"

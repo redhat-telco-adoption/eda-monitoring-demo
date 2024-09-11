@@ -1,0 +1,5 @@
+---
+rhsm_username: "your-rhsm-username"
+rhsm_password: "your-rhsm-password"
+
+# Add any other variables specific to host management

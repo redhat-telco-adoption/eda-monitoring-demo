@@ -1,6 +1,6 @@
 ---
 region: "us-east-2"
-project_name: "eda-demo"
+project_name: "eda-monitoring-demo"
 vpc_cidr: "10.0.0.0/16"
 public_subnet_cidrs:
   - "10.0.1.0/24"
@@ -18,8 +18,6 @@ instances:
     type: "t2.micro"
     count: 1
 
-aap_hostname: "your-aap-instance-hostname"
-aap_username: "your-aap-username"
-aap_password: "your-aap-password"
-aap_inventory_name: "{{ project_name }}-inventory"
-aap_organization: "your-organization-name"
+ee_image: quay.io/redhat-telco-adoption/eda-monitoring-demo-ee:latest
+
+

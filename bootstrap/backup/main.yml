@@ -1,0 +1,306 @@
+---
+- name: Provision AWS Infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Create VPC
+      amazon.aws.ec2_vpc_net:
+        name: "{{ project_name }}-vpc"
+        cidr_block: "{{ vpc_cidr }}"
+        region: "{{ region }}"
+        tags:
+          Name: "{{ project_name }}-vpc"
+      register: vpc
+      tags:
+        - vpc
+        - network
+
+    - name: Create Internet Gateway
+      amazon.aws.ec2_vpc_igw:
+        vpc_id: "{{ vpc.vpc.id }}"
+        region: "{{ region }}"
+        state: present
+        tags:
+          Name: "{{ project_name }}-igw"
+      register: igw
+      tags:
+        - vpc
+        - network
+
+    - name: Create public subnets
+      amazon.aws.ec2_vpc_subnet:
+        state: present
+        vpc_id: "{{ vpc.vpc.id }}"
+        cidr: "{{ item.cidr }}"
+        az: "{{ region }}{{ item.az }}"
+        map_public: true
+        region: "{{ region }}"
+        tags:
+          Name: "{{ project_name }}-public-subnet-{{ item.az }}"
+      loop:
+        - { cidr: "{{ public_subnet_cidrs[0] }}", az: 'a' }
+        - { cidr: "{{ public_subnet_cidrs[1] }}", az: 'b' }
+      register: public_subnets
+      tags:
+        - vpc
+        - network
+
+    - name: Create public route table
+      amazon.aws.ec2_vpc_route_table:
+        vpc_id: "{{ vpc.vpc.id }}"
+        region: "{{ region }}"
+        tags:
+          Name: "{{ project_name }}-public-rt"
+        subnets: "{{ public_subnets.results | map(attribute='subnet.id') | list }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ igw.gateway_id }}"
+      tags:
+        - vpc
+        - network
+
+    - name: Create security group
+      amazon.aws.ec2_security_group:
+        name: "{{ project_name }}-ec2-sg"
+        description: Security group for EC2 instances
+        vpc_id: "{{ vpc.vpc.id }}"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            ports: [22, 80, 443]
+            cidr_ip: 0.0.0.0/0
+          - proto: all
+            group_name: "{{ project_name }}-ec2-sg"
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+      register: security_group
+      tags:
+        - security
+
+    - name: Generate ED25519 key
+      community.crypto.openssh_keypair:
+        path: "./{{ project_name }}_ed25519"
+        type: ed25519
+      register: ssh_key
+      tags:
+        - ssh
+        - security
+
+    - name: Create EC2 key pair
+      amazon.aws.ec2_key:
+        name: "{{ project_name }}-ssh-key"
+        key_material: "{{ ssh_key.public_key }}"
+        region: "{{ region }}"
+      tags:
+        - ssh
+        - security
+
+    - name: Launch EC2 instances
+      amazon.aws.ec2_instance:
+        name: "{{ project_name }}-{{ item.0 }}-{{ item.1 + 1 }}"
+        instance_type: "{{ instances[item.0].type }}"
+        image_id: "{{ ec2_ami }}"
+        region: "{{ region }}"
+        vpc_subnet_id: "{{ public_subnets.results[item.1 % public_subnets.results | length].subnet.id }}"
+        security_group: "{{ security_group.group_id }}"
+        key_name: "{{ project_name }}-ssh-key"
+        network:
+          assign_public_ip: true
+        tags:
+          Name: "{{ project_name }}-{{ item.0 }}-{{ item.1 + 1 }}"
+        state: present
+      loop: "{{ instances.keys() | product(range(instances.values() | map(attribute='count') | max)) | list }}"
+      when: item.1 < instances[item.0].count
+      register: ec2_instances
+      tags:
+        - ec2
+
+    - name: Create Ansible inventory
+      ansible.builtin.template:
+        src: inventory.j2
+        dest: ./inventory.ini
+      tags:
+        - inventory
+
+    - name: Create inventory in Ansible Automation Platform
+      ansible.controller.inventory:
+        name: "{{ aap_inventory_name }}"
+        organization: "{{ aap_organization }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      tags:
+        - aap
+        - inventory
+
+    - name: Add hosts to AAP inventory
+      ansible.controller.host:
+        name: "{{ item.instances[0].public_dns_name }}"
+        inventory: "{{ aap_inventory_name }}"
+        variables:
+          ansible_host: "{{ item.instances[0].public_ip_address }}"
+        state: present
+        enabled: true
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      loop: "{{ ec2_instances.results }}"
+      when: item.instances is defined
+      tags:
+        - aap
+        - inventory
+
+    - name: Create AWS credentials in Ansible Automation Platform
+      ansible.controller.credential:
+        name: "{{ project_name }}-aws-cred"
+        credential_type: Amazon Web Services
+        organization: "{{ aap_organization }}"
+        inputs:
+          username: "{{ aws_access_key }}"
+          password: "{{ aws_secret_key }}"
+          security_token: "{{ aws_session_token | default(omit) }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      tags:
+        - aap
+        - aws_cred
+
+    - name: Create AAP credentials in Ansible Automation Platform
+      ansible.controller.credential:
+        name: "{{ project_name }}-aap-cred"
+        credential_type: Red Hat Ansible Automation Platform
+        organization: "{{ aap_organization }}"
+        inputs:
+          host: "{{ aap_hostname }}"
+          username: "{{ aap_username }}"
+          password: "{{ aap_password }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      tags:
+        - aap
+        - aap_cred
+
+    - name: Create machine credential in Ansible Automation Platform
+      ansible.controller.credential:
+        name: "{{ project_name }}-machine-credential"
+        organization: "{{ aap_organization }}"
+        credential_type: Machine
+        inputs:
+          username: ec2-user
+          ssh_key_data: "{{ lookup('file', project_name + '_ed25519') }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      register: aap_credential
+      tags:
+        - aap
+        - credential
+
+    - name: Create or update project in Ansible Automation Platform
+      ansible.controller.project:
+        name: "{{ project_name }}-project"
+        organization: "{{ aap_organization }}"
+        scm_type: git
+        scm_url: "https://github.com/redhat-telco-adoption/{{ project_name }}.git"  
+        scm_branch: main
+        state: present
+        update_project: true  # This will force a refresh of an existing project
+        wait: true  # Wait for the update to complete
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      register: aap_project
+      tags:
+        - aap
+        - project
+
+    - name: Force project update if it already existed
+      ansible.controller.project_update:
+        project: "{{ project_name }}-project"
+        wait: true
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      when: not aap_project.changed
+      tags:
+        - aap
+        - project
+
+    - name: Create job template in Ansible Automation Platform
+      ansible.controller.job_template:
+        name: "{{ project_name }}-job-template"
+        job_type: run
+        organization: "{{ aap_organization }}"
+        project: "{{ project_name }}-project"
+        inventory: "{{ aap_inventory_name }}"
+        playbook: "bootstrap/install.yml"  
+        credential: "{{ project_name }}-machine-credential"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false  # Set to true in production with valid certs
+      tags:
+        - aap
+        - job_template
+
+    - name: Create execution environment in Ansible Automation Platform
+      ansible.controller.execution_environment:
+        name: "{{ project_name }}-ee"
+        organization: "{{ aap_organization }}"
+        image: "{{ ee_image }}"
+        pull: always
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      register: aap_ee
+      tags:
+        - aap
+        - execution_environment
+
+    - name: Update job template to use new execution environment
+      ansible.controller.job_template:
+        name: "{{ project_name }}-job-template"
+        execution_environment: "{{ project_name }}-ee"
+        job_type: run
+        organization: "{{ aap_organization }}"
+        project: "{{ project_name }}-project"
+        inventory: "{{ aap_inventory_name }}"
+        playbook: "bootstrap/install.yml"
+        credential: "{{ project_name }}-machine-credential"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      tags:
+        - aap
+        - job_template
+
+    - name: Output SSH instructions
+      ansible.builtin.debug:
+        msg: "{{ lookup('ansible.builtin.template', 'ssh_instructions.j2') }}"
+      tags:
+        - debug
+        - ssh

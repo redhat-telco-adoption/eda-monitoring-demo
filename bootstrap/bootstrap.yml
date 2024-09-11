@@ -1,0 +1,111 @@
+---
+- name: Bootstrap Ansible Automation Platform for EDA Monitoring Demo
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/bootstrap_vars.yml
+
+  tasks:
+    # AAP Organization Setup
+    - name: Create AAP Organization
+      ansible.controller.organization:
+        name: "{{ aap_organization }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
+    # Credential Creation
+    - name: Create AWS credentials in AAP
+      ansible.controller.credential:
+        name: "{{ project_name }}-aws-cred"
+        credential_type: Amazon Web Services
+        organization: "{{ aap_organization }}"
+        inputs:
+          username: "{{ aws_access_key }}"
+          password: "{{ aws_secret_key }}"
+          security_token: "{{ aws_session_token | default(omit) }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
+    - name: Create AAP credentials in AAP
+      ansible.controller.credential:
+        name: "{{ project_name }}-aap-cred"
+        credential_type: Red Hat Ansible Automation Platform
+        organization: "{{ aap_organization }}"
+        inputs:
+          host: "{{ aap_hostname }}"
+          username: "{{ aap_username }}"
+          password: "{{ aap_password }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
+    # Project Setup
+    - name: Create project in AAP
+      ansible.controller.project:
+        name: "{{ project_name }}"
+        organization: "{{ aap_organization }}"
+        scm_type: git
+        scm_url: "{{ project_repo_url }}"
+        scm_branch: main
+        state: present
+        update_project: true
+        wait: true
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
+    # Inventory Setup
+    - name: Create inventory in AAP
+      ansible.controller.inventory:
+        name: "{{ project_name }}-inventory"
+        organization: "{{ aap_organization }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
+    # Job Template Creation
+    - name: Create job template for AWS provisioning
+      ansible.controller.job_template:
+        name: "{{ project_name }} - AWS Provision"
+        job_type: run
+        organization: "{{ aap_organization }}"
+        project: "{{ project_name }}"
+        inventory: "{{ project_name }}-inventory"
+        playbook: "aws_provisioning/main.yml"
+        credentials:
+          - "{{ project_name }}-aws-cred"
+          - "{{ project_name }}-aap-cred"
+        extra_vars: "{{ lookup('file', 'aws_provisioning/vars/main.yml') | from_yaml | to_json }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
+    - name: Create job template for host management
+      ansible.controller.job_template:
+        name: "{{ project_name }} - Host Management"
+        job_type: run
+        organization: "{{ aap_organization }}"
+        project: "{{ project_name }}"
+        inventory: "{{ project_name }}-inventory"
+        playbook: "host_management/main.yml"
+        extra_vars: "{{ lookup('file', 'host_management/vars/main.yml') | from_yaml | to_json }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
