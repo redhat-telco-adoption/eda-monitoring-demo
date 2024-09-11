@@ -133,3 +133,42 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+
+    # Workflow Template Creation
+    - name: Create workflow template
+      ansible.controller.workflow_job_template:
+        name: "{{ project_name }} - Full Deployment"
+        organization: "{{ aap_organization }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      register: workflow_template
+
+    - name: Add AWS provisioning node to workflow
+      ansible.controller.workflow_job_template_node:
+        workflow_job_template: "{{ project_name }} - Full Deployment"
+        unified_job_template: "{{ project_name }} - AWS Provision"
+        organization: "{{ aap_organization }}"
+        identifier: "aws-provision-node"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      register: aws_node
+
+    - name: Add host management node to workflow
+      ansible.controller.workflow_job_template_node:
+        workflow_job_template: "{{ project_name }} - Full Deployment"
+        unified_job_template: "{{ project_name }} - Host Management"
+        organization: "{{ aap_organization }}"
+        identifier: "host-management-node"
+        state: present
+        success_nodes:
+          - "aws-provision-node"
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
