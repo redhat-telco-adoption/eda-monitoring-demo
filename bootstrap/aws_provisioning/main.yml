@@ -115,6 +115,7 @@
         inventory: "{{ project_name }}-inventory"
         variables:
           ansible_host: "{{ item.instances[0].public_ip_address }}"
+        enabled: true
         state: present
       loop: "{{ ec2_instances.results }}"
       when: item.instances is defined

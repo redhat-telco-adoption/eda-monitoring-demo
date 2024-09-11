@@ -127,6 +127,7 @@
         project: "{{ project_name }}"
         inventory: "{{ project_name }}-inventory"
         playbook: "bootstrap/host_management/main.yml"
+        execution_environment: "{{ project_name }}-ee"
         state: present
         controller_host: "{{ aap_hostname }}"
         controller_username: "{{ aap_username }}"
