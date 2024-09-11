@@ -2,10 +2,13 @@ name: Build Execution Environment
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    paths:
+    - 'execution-environment/**'
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [main]
+    paths:
+    - 'execution-environment/**'
 
 jobs:
   build:
