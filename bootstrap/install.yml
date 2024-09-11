@@ -6,3 +6,6 @@
     - name: Debug
       ansible.builtin.debug:
         msg: "Checking connectivity"
+    - name: Sleep
+      ansible.builtin.pause:
+        minutes: 5
