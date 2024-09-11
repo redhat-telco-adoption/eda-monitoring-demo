@@ -50,7 +50,7 @@
         validate_certs: false
 
     # Project Setup
-    - name: Create project in AAP
+    - name: Create or update project in AAP
       ansible.controller.project:
         name: "{{ project_name }}"
         organization: "{{ aap_organization }}"
@@ -64,6 +64,17 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      register: project_result
+
+    - name: Force project update if it already existed
+      ansible.controller.project_update:
+        project: "{{ project_name }}"
+        wait: true
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      when: not project_result.changed
 
     # Inventory Setup
     - name: Create inventory in AAP
@@ -84,11 +95,10 @@
         organization: "{{ aap_organization }}"
         project: "{{ project_name }}"
         inventory: "{{ project_name }}-inventory"
-        playbook: "aws_provisioning/main.yml"
+        playbook: "bootstrap/aws_provisioning/main.yml"
         credentials:
           - "{{ project_name }}-aws-cred"
           - "{{ project_name }}-aap-cred"
-        extra_vars: "{{ lookup('file', 'aws_provisioning/vars/main.yml') | from_yaml | to_json }}"
         state: present
         controller_host: "{{ aap_hostname }}"
         controller_username: "{{ aap_username }}"
@@ -102,8 +112,7 @@
         organization: "{{ aap_organization }}"
         project: "{{ project_name }}"
         inventory: "{{ project_name }}-inventory"
-        playbook: "host_management/main.yml"
-        extra_vars: "{{ lookup('file', 'host_management/vars/main.yml') | from_yaml | to_json }}"
+        playbook: "bootstrap/host_management/main.yml"
         state: present
         controller_host: "{{ aap_hostname }}"
         controller_username: "{{ aap_username }}"

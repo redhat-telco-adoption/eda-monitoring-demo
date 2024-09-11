@@ -99,6 +99,16 @@
       when: item.1 < instances[item.0].count
       register: ec2_instances
 
+    - name: Create machine credential in AAP
+      ansible.controller.credential:
+        name: "{{ project_name }}-machine-cred"
+        credential_type: Machine
+        organization: "{{ aap_organization }}"
+        inputs:
+          username: "ec2-user"
+          ssh_key_data: "{{ lookup('file', project_name + '_ed25519') }}"
+        state: present
+
     - name: Add hosts to AAP inventory
       ansible.controller.host:
         name: "{{ item.instances[0].public_dns_name }}"
@@ -106,24 +116,15 @@
         variables:
           ansible_host: "{{ item.instances[0].public_ip_address }}"
         state: present
-        controller_host: "{{ aap_hostname }}"
-        controller_username: "{{ aap_username }}"
-        controller_password: "{{ aap_password }}"
-        validate_certs: false
       loop: "{{ ec2_instances.results }}"
       when: item.instances is defined
 
-    - name: Output SSH instructions
-      ansible.builtin.debug:
-        msg: |
-          To access the EC2 instances:
-          1. The private key has been saved to: ./{{ project_name }}_ed25519
-          2. SSH to an instance: ssh -i ./{{ project_name }}_ed25519 ec2-user@<public-ip>
-             (Replace <public-ip> with the actual public IP of the instance)
-
-          Instance public IPs:
-          {% for instance in ec2_instances.results %}
-          {% if instance.instances is defined %}
-          - {{ instance.instances[0].public_ip_address }} ({{ instance.instances[0].tags.Name }})
-          {% endif %}
-          {% endfor %}
+    - name: Update host management job template with machine credential
+      ansible.controller.job_template:
+        name: "{{ project_name }} - Host Management"
+        organization: "{{ aap_organization }}"
+        project: "{{ project_name }}"
+        inventory: "{{ project_name }}-inventory"
+        credentials:
+          - "{{ project_name }}-machine-cred"
+        state: present
