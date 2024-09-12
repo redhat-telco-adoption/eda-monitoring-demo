@@ -250,7 +250,7 @@
         datadog_enabled: true
         datadog_api_key: "{{ vault_datadog_api_key }}"
         datadog_site: "{{ vault_datadog_site }}"
-        agent_datadog_config:
+        datadog_config:
           tags:
             - "project:eda-monitoring-demo"
             - "role:web"
