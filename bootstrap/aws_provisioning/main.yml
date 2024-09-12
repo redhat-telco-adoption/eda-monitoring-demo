@@ -93,31 +93,3 @@
       loop: "{{ instances.keys() | product(range(instances.values() | map(attribute='count') | max)) | list }}"
       when: item.1 < instances[item.0].count
       register: ec2_instances
-
-    - name: Create inventory source for AWS
-      ansible.controller.inventory_source:
-        name: "AWS EC2 Source"
-        inventory: "{{ project_name }}-inventory"
-        source: "ec2"
-        credential: "{{ project_name }}-aws-cred"
-        update_on_launch: true
-        overwrite: true
-        source_vars:
-          regions:
-            - "{{ region }}"
-          filters:
-            tag:Project: "{{ project_name }}"
-          keyed_groups:
-            - key: tags.Group
-              separator: ""
-          compose:
-            ansible_host: public_ip_address
-        state: present
-
-    - name: Update AWS inventory source
-      ansible.controller.inventory_source_update:
-        name: "AWS EC2 Source"
-        inventory: "{{ project_name }}-inventory"
-        wait: true
-
-   

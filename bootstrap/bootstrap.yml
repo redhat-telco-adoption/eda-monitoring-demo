@@ -127,6 +127,30 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+    
+    - name: Create inventory source for AWS
+      ansible.controller.inventory_source:
+        name: "AWS EC2 Source"
+        inventory: "{{ project_name }}-inventory"
+        source: "ec2"
+        credential: "{{ project_name }}-aws-cred"
+        update_on_launch: true
+        overwrite: true
+        source_vars:
+          regions:
+            - "{{ aws_region }}"
+          filters:
+            tag:Project: "{{ project_name }}"
+          keyed_groups:
+            - key: tags.Group
+              separator: ""
+          compose:
+            ansible_host: public_ip_address
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
 
     # Job Template Creation
     - name: Create job template for AWS provisioning
