@@ -156,6 +156,9 @@
         inventory: "{{ project_name }}-inventory"
         playbook: "bootstrap/host_management/main.yml"
         execution_environment: "{{ project_name }}-ee"
+        credentials:
+          - "{{ project_name }}-vault-cred"
+          - "{{ project_name }}-machine-cred"
         state: present
         controller_host: "{{ aap_hostname }}"
         controller_username: "{{ aap_username }}"
