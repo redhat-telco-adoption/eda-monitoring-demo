@@ -69,27 +69,10 @@
             cidr_ip: 0.0.0.0/0
       register: security_group
 
-    - name: Generate ED25519 key
-      community.crypto.openssh_keypair:
-        path: "./{{ project_name }}_ed25519"
-        type: ed25519
-      register: ssh_key
-
-    - name: Read existing SSH public key
-      ansible.builtin.slurp:
-        src: "{{ existing_ssh_key_path }}"
-      register: existing_ssh_key
-
-    - name: Create EC2 key pair for existing key
+    - name: Create EC2 key pair
       amazon.aws.ec2_key:
-        name: "{{ project_name }}-existing-ssh-key"
-        key_material: "{{ existing_ssh_key['content'] | b64decode }}"
-        region: "{{ region }}"
-
-    - name: Create EC2 key pair for generated key
-      amazon.aws.ec2_key:
-        name: "{{ project_name }}-generated-ssh-key"
-        key_material: "{{ ssh_key.public_key }}"
+        name: "{{ project_name }}-ssh-key"
+        key_material: "{{ ssh_public_key }}"
         region: "{{ region }}"
 
     - name: Launch EC2 instances
@@ -100,7 +83,7 @@
         region: "{{ region }}"
         vpc_subnet_id: "{{ public_subnets.results[item.1 % public_subnets.results | length].subnet.id }}"
         security_group: "{{ security_group.group_id }}"
-        key_name: "{{ project_name }}-existing-ssh-key"
+        key_name: "{{ project_name }}-ssh-key"
         network:
           assign_public_ip: true
         tags:
@@ -110,25 +93,6 @@
       loop: "{{ instances.keys() | product(range(instances.values() | map(attribute='count') | max)) | list }}"
       when: item.1 < instances[item.0].count
       register: ec2_instances
-
-    - name: Add generated SSH key to EC2 instances
-      amazon.aws.ec2_instance:
-        instance_ids: "{{ item.instance_ids }}"
-        region: "{{ region }}"
-        key_name: "{{ project_name }}-generated-ssh-key"
-        state: present
-      loop: "{{ ec2_instances.results }}"
-      when: item.instances is defined
-
-    - name: Create machine credential in AAP
-      ansible.controller.credential:
-        name: "{{ project_name }}-machine-cred"
-        credential_type: Machine
-        organization: "{{ aap_organization }}"
-        inputs:
-          username: "ec2-user"
-          ssh_key_data: "{{ lookup('file', project_name + '_ed25519') }}"
-        state: present
 
     - name: Create groups in AAP inventory
       ansible.controller.group:

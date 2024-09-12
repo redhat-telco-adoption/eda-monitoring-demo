@@ -62,6 +62,20 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
 
+    - name: Create machine credential in AAP
+      ansible.controller.credential:
+        name: "{{ project_name }}-machine-cred"
+        credential_type: Machine
+        organization: "{{ aap_organization }}"
+        inputs:
+          username: "ec2-user"
+          ssh_key_data: "{{ vault_ssh_private_key }}"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+
     # Project Setup
     - name: Create or update project in AAP
       ansible.controller.project:
