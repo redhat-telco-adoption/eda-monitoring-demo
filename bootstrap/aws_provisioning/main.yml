@@ -89,6 +89,7 @@
         tags:
           Name: "{{ project_name }}-{{ item.0 }}-{{ item.1 + 1 }}"
           Group: "{{ item.0 }}"
+          Project: "{{ project_name }}"
         state: present
       loop: "{{ instances.keys() | product(range(instances.values() | map(attribute='count') | max)) | list }}"
       when: item.1 < instances[item.0].count
