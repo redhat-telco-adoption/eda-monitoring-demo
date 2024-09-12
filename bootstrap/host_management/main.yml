@@ -3,9 +3,11 @@
   hosts: all
   become: true
 
+  vars_files:
+    - vars/main.yml
   tasks:
     - name: Ensure subscription-manager is installed
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: subscription-manager
         state: present
 
@@ -50,7 +52,7 @@
 
   tasks:
     - name: Install required packages
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name:
           - wget
           - tar
@@ -65,20 +67,20 @@
       ansible.builtin.unarchive:
         src: /tmp/prometheus.tar.gz
         dest: /opt
-        remote_src: yes
+        remote_src: true
 
     - name: Create Prometheus system group
       ansible.builtin.group:
         name: prometheus
-        system: yes
+        system: true
         state: present
 
     - name: Create Prometheus system user
       ansible.builtin.user:
         name: prometheus
-        system: yes
+        system: true
         group: prometheus
-        createhome: no
+        createhome: false
         shell: /sbin/nologin
 
     - name: Create Prometheus directories
@@ -99,7 +101,7 @@
         owner: prometheus
         group: prometheus
         mode: '0755'
-        remote_src: yes
+        remote_src: true
 
     - name: Copy Prometheus configuration
       ansible.builtin.copy:
@@ -108,7 +110,7 @@
         owner: prometheus
         group: prometheus
         mode: '0644'
-        remote_src: yes
+        remote_src: true
 
     - name: Create Prometheus systemd service
       ansible.builtin.template:
@@ -120,8 +122,8 @@
       ansible.builtin.systemd:
         name: prometheus
         state: started
-        enabled: yes
-        daemon_reload: yes
+        enabled: true
+        daemon_reload: true
 
     - name: Download Alertmanager
       ansible.builtin.get_url:
@@ -132,20 +134,20 @@
       ansible.builtin.unarchive:
         src: /tmp/alertmanager.tar.gz
         dest: /opt
-        remote_src: yes
+        remote_src: true
 
     - name: Create Alertmanager system group
       ansible.builtin.group:
         name: alertmanager
-        system: yes
+        system: true
         state: present
 
     - name: Create Alertmanager system user
       ansible.builtin.user:
         name: alertmanager
-        system: yes
+        system: true
         group: alertmanager
-        createhome: no
+        createhome: false
         shell: /sbin/nologin
 
     - name: Create Alertmanager directories
@@ -166,7 +168,7 @@
         owner: alertmanager
         group: alertmanager
         mode: '0755'
-        remote_src: yes
+        remote_src: true
 
     - name: Copy Alertmanager configuration
       ansible.builtin.copy:
@@ -175,7 +177,7 @@
         owner: alertmanager
         group: alertmanager
         mode: '0644'
-        remote_src: yes
+        remote_src: true
 
     - name: Create Alertmanager systemd service
       ansible.builtin.template:
@@ -187,5 +189,5 @@
       ansible.builtin.systemd:
         name: alertmanager
         state: started
-        enabled: yes
-        daemon_reload: yes
+        enabled: true
+        daemon_reload: true
