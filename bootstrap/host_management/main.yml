@@ -3,9 +3,6 @@
   hosts: all
   become: true
 
-  vars_files:
-    - vars/main.yml
-
   tasks:
     - name: Ensure subscription-manager is installed
       ansible.builtin.yum:
@@ -22,6 +19,11 @@
       until: rhsm_register is success
       retries: 3
       delay: 10
+
+    - name: Get list of available repositories
+      ansible.builtin.command: subscription-manager repos --list
+      register: available_repos
+      changed_when: false
 
     - name: Update all packages
       ansible.builtin.dnf:
@@ -41,3 +43,149 @@
           - ansible_distribution == 'RedHat'
           - ansible_distribution_major_version == '8'
         msg: "This playbook is designed for RHEL 8 systems"
+
+- name: Configure Infra Nodes
+  hosts: infra
+  become: true
+
+  tasks:
+    - name: Install required packages
+      ansible.builtin.yum:
+        name:
+          - wget
+          - tar
+        state: present
+
+    - name: Download Prometheus
+      ansible.builtin.get_url:
+        url: https://github.com/prometheus/prometheus/releases/download/v2.37.0/prometheus-2.37.0.linux-amd64.tar.gz
+        dest: /tmp/prometheus.tar.gz
+
+    - name: Extract Prometheus
+      ansible.builtin.unarchive:
+        src: /tmp/prometheus.tar.gz
+        dest: /opt
+        remote_src: yes
+
+    - name: Create Prometheus system group
+      ansible.builtin.group:
+        name: prometheus
+        system: yes
+        state: present
+
+    - name: Create Prometheus system user
+      ansible.builtin.user:
+        name: prometheus
+        system: yes
+        group: prometheus
+        createhome: no
+        shell: /sbin/nologin
+
+    - name: Create Prometheus directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
+    - name: Copy Prometheus binary
+      ansible.builtin.copy:
+        src: /opt/prometheus-2.37.0.linux-amd64/prometheus
+        dest: /usr/local/bin/prometheus
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        remote_src: yes
+
+    - name: Copy Prometheus configuration
+      ansible.builtin.copy:
+        src: /opt/prometheus-2.37.0.linux-amd64/prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
+        remote_src: yes
+
+    - name: Create Prometheus systemd service
+      ansible.builtin.template:
+        src: prometheus.service.j2
+        dest: /etc/systemd/system/prometheus.service
+        mode: '0644'
+
+    - name: Start and enable Prometheus service
+      ansible.builtin.systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Download Alertmanager
+      ansible.builtin.get_url:
+        url: https://github.com/prometheus/alertmanager/releases/download/v0.24.0/alertmanager-0.24.0.linux-amd64.tar.gz
+        dest: /tmp/alertmanager.tar.gz
+
+    - name: Extract Alertmanager
+      ansible.builtin.unarchive:
+        src: /tmp/alertmanager.tar.gz
+        dest: /opt
+        remote_src: yes
+
+    - name: Create Alertmanager system group
+      ansible.builtin.group:
+        name: alertmanager
+        system: yes
+        state: present
+
+    - name: Create Alertmanager system user
+      ansible.builtin.user:
+        name: alertmanager
+        system: yes
+        group: alertmanager
+        createhome: no
+        shell: /sbin/nologin
+
+    - name: Create Alertmanager directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: alertmanager
+        group: alertmanager
+        mode: '0755'
+      loop:
+        - /etc/alertmanager
+        - /var/lib/alertmanager
+
+    - name: Copy Alertmanager binary
+      ansible.builtin.copy:
+        src: /opt/alertmanager-0.24.0.linux-amd64/alertmanager
+        dest: /usr/local/bin/alertmanager
+        owner: alertmanager
+        group: alertmanager
+        mode: '0755'
+        remote_src: yes
+
+    - name: Copy Alertmanager configuration
+      ansible.builtin.copy:
+        src: /opt/alertmanager-0.24.0.linux-amd64/alertmanager.yml
+        dest: /etc/alertmanager/alertmanager.yml
+        owner: alertmanager
+        group: alertmanager
+        mode: '0644'
+        remote_src: yes
+
+    - name: Create Alertmanager systemd service
+      ansible.builtin.template:
+        src: alertmanager.service.j2
+        dest: /etc/systemd/system/alertmanager.service
+        mode: '0644'
+
+    - name: Start and enable Alertmanager service
+      ansible.builtin.systemd:
+        name: alertmanager
+        state: started
+        enabled: yes
+        daemon_reload: yes
