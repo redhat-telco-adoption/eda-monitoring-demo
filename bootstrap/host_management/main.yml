@@ -22,11 +22,6 @@
       retries: 3
       delay: 10
 
-    - name: Get list of available repositories
-      ansible.builtin.command: subscription-manager repos --list
-      register: available_repos
-      changed_when: false
-
     - name: Update all packages
       ansible.builtin.dnf:
         name: '*'
@@ -191,3 +186,89 @@
         state: started
         enabled: true
         daemon_reload: true
+
+# Web Hosts
+- name: Configure Web Hosts
+  hosts: web
+  become: true
+
+  vars:
+    datadog_site: "datadoghq.com"
+
+  tasks:
+    - name: Install Nginx
+      ansible.builtin.dnf:
+        name: nginx
+        state: present
+
+    - name: Start and enable Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Create a simple hello page
+      ansible.builtin.copy:
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Hello from {{ inventory_hostname }}</title>
+          </head>
+          <body>
+            <h1>Hello from {{ inventory_hostname }}</h1>
+            <p>This is a simple hello page for the EDA Monitoring Demo.</p>
+          </body>
+          </html>
+        dest: /usr/share/nginx/html/index.html
+        mode: '0644'
+
+    - name: Configure Nginx for status page
+      ansible.builtin.copy:
+        content: |
+          server {
+              listen 80;
+              server_name localhost;
+
+              location / {
+                  root /usr/share/nginx/html;
+                  index index.html;
+              }
+
+              location /nginx_status {
+                  stub_status on;
+                  allow 127.0.0.1;
+                  deny all;
+              }
+          }
+        dest: /etc/nginx/conf.d/default.conf
+        mode: '0644'
+      notify: Reload Nginx
+
+    - name: Import the Datadog Agent role
+      ansible.builtin.import_role:
+        name: datadog.dd.agent
+      vars:
+        datadog_api_key: "{{ vault_datadog_api_key }}"
+        datadog_site: "{{ datadog_site }}"
+        datadog_enabled: true
+        datadog_config:
+          tags:
+            - "project:eda-monitoring-demo"
+            - "role:web"
+          logs_enabled: true
+          apm_config:
+            enabled: true
+        datadog_checks:
+          nginx:
+            init_config:
+            instances:
+              - nginx_status_url: http://localhost/nginx_status
+        datadog_additional_packages:
+          - dd-check-nginx
+
+  handlers:
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
