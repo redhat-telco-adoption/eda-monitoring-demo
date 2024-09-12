@@ -248,9 +248,9 @@
         name: datadog.dd.agent
       vars:
         datadog_enabled: true
+        datadog_api_key: "{{ vault_datadog_api_key }}"
         agent_datadog_config:
           site: "{{ vault_datadog_site }}"
-          api_key: "{{ vault_datadog_api_key }}"
           tags:
             - "project:eda-monitoring-demo"
             - "role:web"
