@@ -192,9 +192,6 @@
   hosts: web
   become: true
 
-  vars:
-    datadog_site: "datadoghq.com"
-
   tasks:
     - name: Install Nginx
       ansible.builtin.dnf:
