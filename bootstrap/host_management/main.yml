@@ -270,3 +270,29 @@
       ansible.builtin.systemd:
         name: nginx
         state: reloaded
+
+- name: Create Datadog Monitor for Web Instance Availability
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - name: Create Datadog monitor for web instance availability
+      community.general.datadog_monitor:
+        api_key: "{{ datadog_api_key }}"
+        app_key: "{{ datadog_app_key }}"
+        state: present
+        name: "Web Instance Availability"
+        type: "service check"
+        query: '"datadog.agent.up".over("role:web").by("host").last(2).count_by_status()'
+        notification_message: "Web instance {{ '{{host.name}}' }} is not reporting to Datadog."
+        thresholds:
+          critical: 1
+          ok: 1
+          warning: 1
+        tags:
+          - "project:eda-monitoring-demo"
+          - "role:web"
