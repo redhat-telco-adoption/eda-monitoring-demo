@@ -94,6 +94,7 @@
           assign_public_ip: true
         tags:
           Name: "{{ project_name }}-{{ item.0 }}-{{ item.1 + 1 }}"
+          Group: "{{ item.0 }}"
         state: present
       loop: "{{ instances.keys() | product(range(instances.values() | map(attribute='count') | max)) | list }}"
       when: item.1 < instances[item.0].count
@@ -109,13 +110,30 @@
           ssh_key_data: "{{ lookup('file', project_name + '_ed25519') }}"
         state: present
 
-    - name: Add hosts to AAP inventory
+    - name: Create groups in AAP inventory
+      ansible.controller.group:
+        name: "{{ item }}"
+        inventory: "{{ project_name }}-inventory"
+        state: present
+      loop: "{{ instances.keys() }}"
+
+    - name: Add hosts to AAP inventory with proper grouping
       ansible.controller.host:
         name: "{{ item.instances[0].public_dns_name }}"
         inventory: "{{ project_name }}-inventory"
         variables:
           ansible_host: "{{ item.instances[0].public_ip_address }}"
         enabled: true
+        state: present
+      loop: "{{ ec2_instances.results }}"
+      when: item.instances is defined
+
+    - name: Associate hosts with groups in AAP inventory
+      ansible.controller.group:
+        name: "{{ item.instances[0].tags.Group }}"
+        inventory: "{{ project_name }}-inventory"
+        hosts:
+          - "{{ item.instances[0].public_dns_name }}"
         state: present
       loop: "{{ ec2_instances.results }}"
       when: item.instances is defined
@@ -128,4 +146,5 @@
         inventory: "{{ project_name }}-inventory"
         credentials:
           - "{{ project_name }}-machine-cred"
+          - "{{ project_name }}-vault-cred"
         state: present
