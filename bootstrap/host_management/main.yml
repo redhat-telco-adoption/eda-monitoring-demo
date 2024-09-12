@@ -243,6 +243,10 @@
         mode: '0644'
       notify: Reload Nginx
 
+    - name: Debug
+      ansible.builtin.debug:
+        msg: "API_KEY: {{vault_datadog_api_key}}, SITE: {{datadog_site}}"
+
     - name: Import the Datadog Agent role
       ansible.builtin.import_role:
         name: datadog.dd.agent
