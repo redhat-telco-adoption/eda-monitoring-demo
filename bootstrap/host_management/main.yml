@@ -282,6 +282,7 @@
   tasks:
     - name: Create Datadog monitor for web instance availability
       community.general.datadog_monitor:
+        api_host: "https://api.{{vault_datadog_site}}"
         api_key: "{{ vault_datadog_api_key }}"
         app_key: "{{ vault_datadog_app_key }}"
         state: present
