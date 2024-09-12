@@ -19,3 +19,5 @@ instances:
     count: 1
 
 aap_organization: "Default"
+
+existing_ssh_key_path: "id_ansible_tower.pub"
