@@ -290,6 +290,7 @@
         type: "service check"
         query: '"datadog.agent.up".over("role:web").by("host").last(2).count_by_status()'
         notification_message: "Web instance {{ '{{host.name}}' }} is not reporting to Datadog."
+        notify_no_data: true
         thresholds:
           critical: 1
           ok: 1
