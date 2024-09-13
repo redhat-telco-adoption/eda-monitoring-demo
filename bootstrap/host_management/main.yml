@@ -235,6 +235,31 @@
         state: started
         enabled: true
 
+    - name: Ensure NGINX log directory has correct permissions
+      ansible.builtin.file:
+        path: /var/log/nginx
+        state: directory
+        mode: '0755'
+        owner: nginx
+        group: nginx
+
+    - name: Ensure NGINX log files have correct permissions
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: file
+        mode: '0644'
+        owner: nginx
+        group: nginx
+      loop:
+        - /var/log/nginx/access.log
+        - /var/log/nginx/error.log
+
+    - name: Add Datadog Agent user to NGINX group
+      ansible.builtin.user:
+        name: dd-agent
+        groups: nginx
+        append: true
+
     - name: Create Datadog NGINX configuration directory
       ansible.builtin.file:
         path: /etc/datadog-agent/conf.d/nginx.d
@@ -265,13 +290,12 @@
         datadog_additional_packages:
           - dd-check-nginx
 
-  handlers:
-    - name: Reload Nginx
+    - name: Restart NGINX to apply log file permission changes
       ansible.builtin.systemd:
         name: nginx
-        state: reloaded
+        state: restarted
 
-    - name: Restart Datadog Agent
+    - name: Restart Datadog Agent to apply group changes
       ansible.builtin.systemd:
         name: datadog-agent
         state: restarted
@@ -287,7 +311,7 @@
   tasks:
     - name: Create Datadog monitor for web instance availability
       community.general.datadog_monitor:
-        api_host: "https://api.{{vault_datadog_site}}"
+        api_host: "https://api.{{ vault_datadog_site }}"
         api_key: "{{ vault_datadog_api_key }}"
         app_key: "{{ vault_datadog_app_key }}"
         state: present
