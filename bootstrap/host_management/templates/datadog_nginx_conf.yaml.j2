@@ -1,0 +1,25 @@
+init_config:
+
+instances:
+  - nginx_status_url: http://localhost/nginx_status
+
+logs:
+  - type: file
+    path: /var/log/nginx/access.log
+    service: nginx
+    source: nginx
+  - type: file
+    path: /var/log/nginx/error.log
+    service: nginx
+    source: nginx
+
+# Auto-discovery template
+# The following section can be used for auto-discovery if needed
+# Uncomment and adjust if you're using auto-discovery
+#
+# auto_conf:
+#   docker_images:
+#     - nginx
+#   init_config:
+#   instances:
+#     - nginx_status_url: http://%%host%%/nginx_status

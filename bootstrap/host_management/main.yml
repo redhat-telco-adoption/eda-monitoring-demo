@@ -235,6 +235,19 @@
         state: started
         enabled: true
 
+    - name: Create Datadog NGINX configuration directory
+      ansible.builtin.file:
+        path: /etc/datadog-agent/conf.d/nginx.d
+        state: directory
+        mode: '0755'
+
+    - name: Create Datadog NGINX configuration file
+      ansible.builtin.template:
+        src: datadog_nginx_conf.yaml.j2
+        dest: /etc/datadog-agent/conf.d/nginx.d/conf.yaml
+        mode: '0644'
+      notify: Restart Datadog Agent
+
     - name: Import the Datadog Agent role
       ansible.builtin.import_role:
         name: datadog.dd.agent
@@ -249,28 +262,19 @@
           logs_enabled: true
           apm_config:
             enabled: true
-        agent_datadog_checks:
-          nginx:
-            init_config:
-            instances:
-              - nginx_status_url: http://localhost/nginx_status
         datadog_additional_packages:
           - dd-check-nginx
-        datadog_config_logs:
-          - type: file
-            path: /var/log/nginx/access.log
-            service: nginx
-            source: nginx
-          - type: file
-            path: /var/log/nginx/error.log
-            service: nginx
-            source: nginx
 
   handlers:
     - name: Reload Nginx
       ansible.builtin.systemd:
         name: nginx
         state: reloaded
+
+    - name: Restart Datadog Agent
+      ansible.builtin.systemd:
+        name: datadog-agent
+        state: restarted
 
 - name: Create Datadog Monitor for Web Instance Availability
   hosts: localhost
