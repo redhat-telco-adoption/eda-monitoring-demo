@@ -299,6 +299,17 @@
       ansible.builtin.systemd:
         name: datadog-agent
         state: restarted
+  
+  handlers:
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+
+    - name: Restart Datadog Agent
+      ansible.builtin.systemd:
+        name: datadog-agent
+        state: restarted
 
 - name: Create Datadog Monitor for Web Instance Availability
   hosts: localhost
