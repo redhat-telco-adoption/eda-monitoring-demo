@@ -290,6 +290,7 @@
         datadog_api_key: "{{ vault_datadog_api_key }}"
         datadog_site: "{{ vault_datadog_site }}"
         datadog_config:
+          hostname: "{{ inventory_hostname }}"
           tags:
             - "project:eda-monitoring-demo"
             - "role:web"

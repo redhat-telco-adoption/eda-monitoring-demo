@@ -1,0 +1,25 @@
+---
+- name: Respond to Datadog Nginx alerts
+  hosts: all
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+        endpoint: /datadog-webhook
+
+  rules:
+    - name: Remediate Nginx service
+      condition: event.payload.alert.status == "Alert" and event.payload.alert.query == '"nginx.can_connect".over("role:web").by("host").last(2).count_by_status()'
+      action:
+        run_playbook:
+          name: remediate_nginx.yml
+          extra_vars:
+            target_host: "{{ event.payload.alert.hostname }}"
+            alert_title: "{{ event.payload.alert.title }}"
+            alert_message: "{{ event.payload.alert.message }}"
+
+    - name: Log Nginx recovery
+      condition: event.payload.alert.status == "Recovered" and event.payload.alert.query == '"nginx.can_connect".over("role:web").by("host").last(2).count_by_status()'
+      action:
+        debug:
+          msg: "Nginx service recovered on host {{ event.payload.alert.hostname }} at {{ event.payload.alert.last_updated_ts }}"
