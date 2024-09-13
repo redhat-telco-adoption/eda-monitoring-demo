@@ -375,31 +375,29 @@
         api_key: "{{ vault_datadog_api_key }}"
         app_key: "{{ vault_datadog_app_key }}"
         state: present
-        name: "[{{ project_name | upper }}] Web Instance {% raw %}{{host.name}}{% endraw %} - Datadog Agent Not Reporting"
+        name: "[{{ project_name | upper }}] Web Instance {{ '{{host.name}}' }} - Datadog Agent Not Reporting"
         type: "service check"
         query: '"datadog.agent.up".over("role:web").by("host").last(2).count_by_status()'
         notification_message: |
-          {% raw %}
-          {{#is_alert}}
-          :red_circle: [{{ project_name | upper }}] Web Instance {{host.name}} is not reporting to Datadog.
+          {{ '{{#is_alert}}' }}
+          :red_circle: [{{ project_name | upper }}] Web Instance {{ '{{host.name}}' }} is not reporting to Datadog.
 
-          Last reported: {{last_reported_time}}
-          Environment: {{host.environment}}
-          Region: {{host.region}}
+          Last reported: {{ '{{last_reported_time}}' }}
+          Environment: {{ '{{host.environment}}' }}
+          Region: {{ '{{host.region}}' }}
 
           Please investigate immediately.
-          {{/is_alert}}
+          {{ '{{/is_alert}}' }}
 
-          {{#is_recovery}}
-          :green_circle: [{{ project_name | upper }}] Web Instance {{host.name}} is now reporting to Datadog.
+          {{ '{{#is_recovery}}' }}
+          :green_circle: [{{ project_name | upper }}] Web Instance {{ '{{host.name}}' }} is now reporting to Datadog.
 
-          Recovery time: {{timestamp}}
-          Environment: {{host.environment}}
-          Region: {{host.region}}
+          Recovery time: {{ '{{timestamp}}' }}
+          Environment: {{ '{{host.environment}}' }}
+          Region: {{ '{{host.region}}' }}
 
           No further action required.
-          {{/is_recovery}}
-          {% endraw %}
+          {{ '{{/is_recovery}}' }}
 
           @webhook-{{ project_name }}-webhook
         notify_no_data: true
@@ -422,17 +420,16 @@
         api_key: "{{ vault_datadog_api_key }}"
         app_key: "{{ vault_datadog_app_key }}"
         state: present
-        name: "[{{ project_name | upper }}] Nginx Not Running on {% raw %}{{host.name}}{% endraw %}"
+        name: "[{{ project_name | upper }}] Nginx Not Running on {{ '{{host.name}}' }}"
         type: "service check"
         query: '"nginx.can_connect".over("role:web").by("host").last(2).count_by_status()'
         notification_message: |
-          {% raw %}
-          {{#is_alert}}
-          :red_circle: [{{ project_name | upper }}] Nginx is not running on host {{host.name}}
+          {{ '{{#is_alert}}' }}
+          :red_circle: [{{ project_name | upper }}] Nginx is not running on host {{ '{{host.name}}' }}
 
-          Last check: {{last_triggered_at}}
-          Environment: {{host.environment}}
-          Region: {{host.region}}
+          Last check: {{ '{{last_triggered_at}}' }}
+          Environment: {{ '{{host.environment}}' }}
+          Region: {{ '{{host.region}}' }}
 
           Potential impacts:
           - Web services may be unavailable
@@ -444,18 +441,17 @@
           3. Attempt to restart Nginx service
           4. Escalate to web team if issue persists
 
-          {{/is_alert}}
+          {{ '{{/is_alert}}' }}
 
-          {{#is_recovery}}
-          :green_circle: [{{ project_name | upper }}] Nginx is now running normally on host {{host.name}}
+          {{ '{{#is_recovery}}' }}
+          :green_circle: [{{ project_name | upper }}] Nginx is now running normally on host {{ '{{host.name}}' }}
 
-          Recovery time: {{timestamp}}
-          Environment: {{host.environment}}
-          Region: {{host.region}}
+          Recovery time: {{ '{{timestamp}}' }}
+          Environment: {{ '{{host.environment}}' }}
+          Region: {{ '{{host.region}}' }}
 
           No further action required. Please ensure all services are functioning as expected.
-          {{/is_recovery}}
-          {% endraw %}
+          {{ '{{/is_recovery}}' }}
 
           @webhook-{{ project_name }}-webhook
         notify_no_data: false
