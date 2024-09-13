@@ -333,15 +333,13 @@
   tasks:
     - name: Create Datadog webhook
       ansible.builtin.uri:
-        url: "https://api.{{ vault_datadog_site }}/api/v1/integration/webhooks"
+        url: "https://api.{{ vault_datadog_site }}/api/v1/integration/webhooks/configuration/webhooks"
         method: POST
         body_format: json
         body:
           name: "{{ project_name }}-webhook"
           url: "{{ webhook_url }}"
           encode_as: "json"
-          custom_headers:
-            X-My-Header: "my-value"
           payload: |
             {
               "alert_id": "$ALERT_ID",
