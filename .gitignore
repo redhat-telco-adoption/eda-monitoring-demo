@@ -9,4 +9,5 @@ content_hub_token.txt
 execution-environment/context
 terraform/
 bootstrap_vars.yml
+.vscode
 
