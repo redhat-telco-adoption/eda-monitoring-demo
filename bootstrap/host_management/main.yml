@@ -321,7 +321,8 @@
         name: datadog-agent
         state: restarted
 
-- name: Create Datadog Monitor for Web Instance Availability
+
+- name: Create Datadog Webhook and Monitors for Web Instances
   hosts: localhost
   connection: local
   gather_facts: false
@@ -330,21 +331,149 @@
     - vars/main.yml
 
   tasks:
+    - name: Create Datadog webhook
+      ansible.builtin.uri:
+        url: "https://api.{{ vault_datadog_site }}/api/v1/integration/webhooks"
+        method: POST
+        body_format: json
+        body:
+          name: "{{ project_name }}-webhook"
+          url: "{{ webhook_url }}"
+          encode_as: "json"
+          custom_headers:
+            X-My-Header: "my-value"
+          payload: |
+            {
+              "alert_id": "$ALERT_ID",
+              "alert_title": "$ALERT_TITLE",
+              "alert_status": "$ALERT_STATUS",
+              "alert_transition": "$ALERT_TRANSITION",
+              "hostname": "$HOSTNAME",
+              "date": "$DATE",
+              "org_id": "$ORG_ID",
+              "alert_query": "$ALERT_QUERY",
+              "alert_message": "$EVENT_MSG",
+              "event_type": "$EVENT_TYPE",
+              "ip_address": "$IP_ADDRESS",
+              "priority": "$PRIORITY",
+              "last_updated": "$LAST_UPDATED",
+              "org_name": "$ORG_NAME",
+              "alert_scope": "$ALERT_SCOPE",
+              "alert_metric": "$ALERT_METRIC",
+              "alert_type": "$ALERT_TYPE",
+              "link": "$LINK",
+              "user": "$USER"
+            }
+        headers:
+          Content-Type: "application/json"
+          DD-API-KEY: "{{ vault_datadog_api_key }}"
+          DD-APPLICATION-KEY: "{{ vault_datadog_app_key }}"
+        status_code: 201
+      register: webhook_result
+
     - name: Create Datadog monitor for web instance availability
       community.general.datadog_monitor:
         api_host: "https://api.{{ vault_datadog_site }}"
         api_key: "{{ vault_datadog_api_key }}"
         app_key: "{{ vault_datadog_app_key }}"
         state: present
-        name: "Web Instance Availability"
+        name: "[{{ project_name | upper }}] Web Instance {% raw %}{{host.name}}{% endraw %} - Datadog Agent Not Reporting"
         type: "service check"
         query: '"datadog.agent.up".over("role:web").by("host").last(2).count_by_status()'
-        notification_message: "Web instance {{ '{{host.name}}' }} is not reporting to Datadog."
+        notification_message: |
+          {% raw %}
+          {{#is_alert}}
+          :red_circle: [{{ project_name | upper }}] Web Instance {{host.name}} is not reporting to Datadog.
+
+          Last reported: {{last_reported_time}}
+          Environment: {{host.environment}}
+          Region: {{host.region}}
+
+          Please investigate immediately.
+          {{/is_alert}}
+
+          {{#is_recovery}}
+          :green_circle: [{{ project_name | upper }}] Web Instance {{host.name}} is now reporting to Datadog.
+
+          Recovery time: {{timestamp}}
+          Environment: {{host.environment}}
+          Region: {{host.region}}
+
+          No further action required.
+          {{/is_recovery}}
+          {% endraw %}
+
+          @webhook-{{ project_name }}-webhook
         notify_no_data: true
         thresholds:
           critical: 1
           ok: 1
           warning: 1
         tags:
-          - "project:eda-monitoring-demo"
+          - "project:{{ project_name }}"
           - "role:web"
+        notify_audit: true
+        timeout_h: 0
+        include_tags: true
+        renotify_interval: 30
+        new_host_delay: 60
+
+    - name: Create Datadog monitor for Nginx status
+      community.general.datadog_monitor:
+        api_host: "https://api.{{ vault_datadog_site }}"
+        api_key: "{{ vault_datadog_api_key }}"
+        app_key: "{{ vault_datadog_app_key }}"
+        state: present
+        name: "[{{ project_name | upper }}] Nginx Not Running on {% raw %}{{host.name}}{% endraw %}"
+        type: "service check"
+        query: '"nginx.can_connect".over("role:web").by("host").last(2).count_by_status()'
+        notification_message: |
+          {% raw %}
+          {{#is_alert}}
+          :red_circle: [{{ project_name | upper }}] Nginx is not running on host {{host.name}}
+
+          Last check: {{last_triggered_at}}
+          Environment: {{host.environment}}
+          Region: {{host.region}}
+
+          Potential impacts:
+          - Web services may be unavailable
+          - Incoming HTTP requests may fail
+
+          Recommended actions:
+          1. Check Nginx process status
+          2. Review Nginx error logs
+          3. Attempt to restart Nginx service
+          4. Escalate to web team if issue persists
+
+          {{/is_alert}}
+
+          {{#is_recovery}}
+          :green_circle: [{{ project_name | upper }}] Nginx is now running normally on host {{host.name}}
+
+          Recovery time: {{timestamp}}
+          Environment: {{host.environment}}
+          Region: {{host.region}}
+
+          No further action required. Please ensure all services are functioning as expected.
+          {{/is_recovery}}
+          {% endraw %}
+
+          @webhook-{{ project_name }}-webhook
+        notify_no_data: false
+        thresholds:
+          critical: 1
+          warning: 1
+          ok: 1
+        renotify_interval: 30
+        notify_audit: true
+        timeout_h: 0
+        include_tags: true
+        new_host_delay: 60
+        renotify_statuses:
+          - alert
+          - no data
+        tags:
+          - "project:{{ project_name }}"
+          - "role:web"
+          - "service:nginx"
