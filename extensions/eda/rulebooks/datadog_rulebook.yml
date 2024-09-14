@@ -15,7 +15,7 @@
         event.payload.alert_query is search("nginx.can_connect") and
         event.payload.alert_type == "error"
       action:
-        run_playbook:
+        run_job_template:
           name: remediate_nginx.yml
           extra_vars:
             target_host: "{{ event.payload.hostname.split }}"
