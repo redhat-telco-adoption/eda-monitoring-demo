@@ -42,14 +42,15 @@
         text: >
           {% if nginx_verification.state == "started" %}
           Nginx service on {{ inventory_hostname }} has been successfully started.
-          Alert details: {{ alert_title }} - {{ alert_message }}
           {% else %}
           Failed to start Nginx service on {{ inventory_hostname }}. Manual intervention required.
-          Alert details: {{ alert_title }} - {{ alert_message }}
           {% endif %}
+          Alert details: {{ alert_title }}
+          Alert triggered at: {{ alert_timestamp | int | to_datetime }}
         alert_type: "{{ 'success' if nginx_verification.state == 'started' else 'error' }}"
+        date_happened: "{{ ansible_date_time.epoch | int }}"
         host: "{{ inventory_hostname }}"
         tags:
-          - "project:{{ project_name }}"
+          - "project:eda-monitoring-demo"
           - "role:web"
           - "service:nginx"

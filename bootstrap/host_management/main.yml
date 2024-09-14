@@ -353,7 +353,6 @@
               "alert_query": "$ALERT_QUERY",
               "alert_message": "$EVENT_MSG",
               "event_type": "$EVENT_TYPE",
-              "ip_address": "$IP_ADDRESS",
               "priority": "$PRIORITY",
               "last_updated": "$LAST_UPDATED",
               "org_name": "$ORG_NAME",
