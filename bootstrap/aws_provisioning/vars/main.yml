@@ -19,4 +19,4 @@ instances:
     count: 1
 
 aap_organization: "Default"
-ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOWJfDnQ/kIAl7cAMWFZ8HUylEnxzawlHzPyhN2zEKx0 jlmayorga@gmail.com"
+ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINWt1W3FT5DDQvMXxtNUAGCqdfGq7U8kmKtFJUXs7Xrq jlmayorga@Joses-Mac-mini.localdomain"
