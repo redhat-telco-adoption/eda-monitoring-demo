@@ -235,7 +235,7 @@
     - name: Ensure NGINX log files have correct permissions
       ansible.builtin.file:
         path: "{{ item }}"
-        state: file
+        state: touch
         mode: '0644'
         owner: nginx
         group: nginx
