@@ -17,6 +17,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     # Credential Creation
     - name: Create AWS credentials in AAP
@@ -33,6 +35,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     - name: Create AAP credentials in AAP
       ansible.controller.credential:
@@ -48,6 +52,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     - name: Create Ansible Vault credential in AAP
       ansible.controller.credential:
@@ -61,6 +67,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     - name: Create machine credential in AAP
       ansible.controller.credential:
@@ -70,12 +78,13 @@
         inputs:
           username: "ec2-user"
           ssh_key_data: "{{ vault_ssh_private_key }}"
-          # ssh_key_unlock: "{{ ssh_key_password }}"
         state: present
         controller_host: "{{ aap_hostname }}"
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     # Project Setup
     - name: Create or update project in AAP
@@ -93,6 +102,8 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
       register: project_result
+      tags:
+        - aap
 
     - name: Force project update if it already existed
       ansible.controller.project_update:
@@ -103,6 +114,8 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
       when: not project_result.changed
+      tags:
+        - aap
 
     # Execution Environment Setup
     - name: Create execution environment in AAP
@@ -116,6 +129,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     # Inventory Setup
     - name: Create inventory in AAP
@@ -127,6 +142,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     - name: Create inventory source for AWS
       ansible.controller.inventory_source:
@@ -151,6 +168,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     # Job Template Creation
     - name: Create job template for AWS provisioning
@@ -170,6 +189,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     - name: Create job template for host management
       ansible.controller.job_template:
@@ -188,8 +209,9 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
-    # New Job Template for Remediation
     - name: Create job template for remediation
       ansible.controller.job_template:
         name: "{{ project_name }} - DataDog Remediation"
@@ -209,8 +231,7 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
       tags:
-        - controller
-
+        - aap
 
     # Workflow Template Creation
     - name: Create workflow template
@@ -223,6 +244,8 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
       register: workflow_template
+      tags:
+        - aap
 
     - name: Add AWS provisioning node to workflow
       ansible.controller.workflow_job_template_node:
@@ -236,6 +259,8 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
       register: aws_node
+      tags:
+        - aap
 
     - name: Add host management node to workflow
       ansible.controller.workflow_job_template_node:
@@ -250,6 +275,8 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+      tags:
+        - aap
 
     # EDA Management
     - name: Add Event Driven Controller Application
@@ -320,22 +347,3 @@
         eda_password: "{{ aap_password }}"
       tags:
         - eda
-
-   # - name: Create new Controller token in EDA Controller
-   #   ansible.builtin.uri:
-   #     url: "https://{{ eda_hostname }}/api/eda/v1/users/me/awx-tokens/"
-   #     method: POST
-   #     user: "{{ aap_username }}"
-   #     password: "{{ aap_password }}"
-   #     force_basic_auth: true
-   #     follow_redirects: all
-   #     body_format: json
-   #     body:
-   #       name: "{{ project_name }} AAP Controller Token"
-   #       token: "{{ eda_token.ansible_facts.controller_token.token }}"
-   #     status_code:
-   #       - 201
-   #       - 301
-   #     validate_certs: false
-   #   tags:
-   #     - eda
