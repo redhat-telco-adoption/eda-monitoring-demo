@@ -10,6 +10,7 @@
         url: "{{ vault_oneagent_environment_url }}/api/v1/deployment/installer/agent/unix/default/latest?arch=x86"
         method: GET
         dest: /tmp/dynatrace-oneagent.sh
+        mode: 755
         headers:
           Authorization: "Api-Token {{ vault_oneagent_paas_token }}"
 
