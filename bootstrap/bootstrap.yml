@@ -127,7 +127,7 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
-    
+
     - name: Create inventory source for AWS
       ansible.controller.inventory_source:
         name: "AWS EC2 Source"
@@ -189,6 +189,29 @@
         controller_password: "{{ aap_password }}"
         validate_certs: false
 
+    # New Job Template for Remediation
+    - name: Create job template for remediation
+      ansible.controller.job_template:
+        name: "{{ project_name }} - DataDog Remediation"
+        job_type: run
+        organization: "{{ aap_organization }}"
+        project: "{{ project_name }}"
+        inventory: "{{ project_name }}-inventory"
+        playbook: "bootstrap/eda/datadog_remediation.yml"
+        execution_environment: "{{ project_name }}-ee"
+        ask_limit_on_launch: true
+        credentials:
+          - "{{ project_name }}-vault-cred"
+          - "{{ project_name }}-machine-cred"
+        state: present
+        controller_host: "{{ aap_hostname }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: false
+      tags:
+        - controller
+
+
     # Workflow Template Creation
     - name: Create workflow template
       ansible.controller.workflow_job_template:
@@ -227,3 +250,92 @@
         controller_username: "{{ aap_username }}"
         controller_password: "{{ aap_password }}"
         validate_certs: false
+
+    # EDA Management
+    - name: Add Event Driven Controller Application
+      ansible.controller.application:
+        name: "{{ project_name }}-eda"
+        description: EDA Controller Application
+        organization: Default
+        state: present
+        authorization_grant_type: password
+        client_type: public
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        controller_host: "{{ aap_hostname }}"
+        validate_certs: false
+      tags:
+        - eda
+
+    - name: Create App Token
+      ansible.controller.token:
+        application: "{{ project_name }}-eda"
+        description: EDA Access Token
+        scope: write
+        state: present
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        controller_host: "{{ aap_hostname }}"
+        validate_certs: false
+      register: eda_token
+      tags:
+        - eda
+
+    - name: Create new EDA Controller Project
+      infra.eda_configuration.project:
+        name: "{{ project_name }}"
+        description: "{{ project_name }}"
+        url: "{{ project_repo_url }}"
+        state: present
+        eda_host: "{{ eda_hostname }}"
+        eda_username: "{{ aap_username }}"
+        eda_password: "{{ aap_password }}"
+      register: eda_project
+      tags:
+        - eda
+
+    - name: Create EDA user token for AAP Controller
+      infra.eda_configuration.user_token:
+        name: "{{ project_name }}"
+        description: "{{ project_name }}"
+        token: "{{ eda_token.ansible_facts.controller_token.token }}"
+        eda_host: "{{ eda_hostname }}"
+        eda_username: "{{ aap_username }}"
+        eda_password: "{{ aap_password }}"
+      tags:
+        - eda
+
+    - name: Create EDA rulebook activation
+      infra.eda_configuration.rulebook_activation:
+        name: DataDog Webhook
+        description: Hook to listen for monitoring alerts from DataDog
+        project: "{{ project_name }}"
+        rulebook: datadog_rulebook.yml
+        decision_environment: "Automation Hub Default Decision Environment"
+        enabled: true
+        awx_token: "{{ project_name }}"
+        state: present
+        eda_host: "{{ eda_hostname }}"
+        eda_username: "{{ aap_username }}"
+        eda_password: "{{ aap_password }}"
+      tags:
+        - eda
+
+   # - name: Create new Controller token in EDA Controller
+   #   ansible.builtin.uri:
+   #     url: "https://{{ eda_hostname }}/api/eda/v1/users/me/awx-tokens/"
+   #     method: POST
+   #     user: "{{ aap_username }}"
+   #     password: "{{ aap_password }}"
+   #     force_basic_auth: true
+   #     follow_redirects: all
+   #     body_format: json
+   #     body:
+   #       name: "{{ project_name }} AAP Controller Token"
+   #       token: "{{ eda_token.ansible_facts.controller_token.token }}"
+   #     status_code:
+   #       - 201
+   #       - 301
+   #     validate_certs: false
+   #   tags:
+   #     - eda
