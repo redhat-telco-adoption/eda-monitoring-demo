@@ -16,7 +16,7 @@
         event.payload.alert_type == "error"
       action:
         run_job_template:
-          name: eda-monitoring-demo - Remediation
+          name: eda-monitoring-demo - DataDog Remediation
           organization: Default
           job_args:
             extra_vars:
