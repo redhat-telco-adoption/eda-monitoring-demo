@@ -1,28 +1,39 @@
 ---
 - name: Configure App Hosts with Dynatrace OneAgent
-  hosts: app
-  become: true
-
+  hosts: localhost
+  become: false
   vars_files:
     - vars/main.yml
-
-  vars:
-    oneagent_environment_url: "{{ vault_oneagent_environment_url }}"
-    oneagent_paas_token: "{{ vault_oneagent_paas_token }}"
-    oneagent_validate_certs: false
-    oneagent_preserve_installer: true
-    oneagent_install_args:
-      - "--set-host-name={{ inventory_hostname }}"
-      - --set-app-log-content-access=true 
   tasks:
-    - name: Import Dynatrace Role
-      ansible.builtin.import_role:
-        name: dynatrace.oneagent.oneagent
+    - name: Get Dynatrace OneAgent download URL
+      ansible.builtin.uri:
+        url: "{{ vault_oneagent_environment_url }}/api/v1/deployment/installer/agent/unix/default/latest?arch=x86"
+        method: GET
+        dest: /tmp/dynatrace-oneagent.sh
+        headers:
+          Authorization: "Api-Token {{ vault_oneagent_paas_token }}"
+
+    - name: Install Dynatrace OneAgent
+      ansible.builtin.command:
+        cmd: >-
+          /tmp/dynatrace-oneagent.sh --set-host-name={{ inventory_hostname }}
+          --set-monitoring-mode=fullstack
+          --set-app-log-content-access=true
+          --set-host-group={{ project_name }}
 
     - name: Ensure Dynatrace OneAgent is running
       ansible.builtin.systemd:
         name: oneagent.service
         state: started
         enabled: true
-      when: dynatrace_agent.changed
 
+    - name: Install NGINX
+      ansible.builtin.dnf:
+        name: nginx
+        state: present
+
+    - name: Ensure NGINX is running
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
