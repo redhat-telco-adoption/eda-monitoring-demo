@@ -9,7 +9,10 @@
   vars:
     oneagent_environment_url: "{{ vault_oneagent_environment_url }}"
     oneagent_paas_token: "{{ vault_oneagent_paas_token }}"
-
+    oneagent_install_args:
+      - "--set-host-name={{ inventory_hostname }}"
+      - --set-app-log-content-access=true 
+      - --set-host-name=test
   tasks:
     - name: Import Dynatrace Role
       ansible.builtin.import_role:
@@ -17,7 +20,7 @@
 
     - name: Ensure Dynatrace OneAgent is running
       ansible.builtin.systemd:
-        name: oneagent
+        name: oneagent.service
         state: started
         enabled: true
       when: dynatrace_agent.changed
