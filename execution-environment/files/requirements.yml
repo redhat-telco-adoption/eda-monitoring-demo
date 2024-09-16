@@ -7,3 +7,4 @@ collections:
   - name: ansible.posix
   - name: datadog.dd
   - name: infra.eda_configuration
+  - name: dynatrace.oneagent
