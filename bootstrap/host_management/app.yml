@@ -1,0 +1,23 @@
+---
+- name: Configure App Hosts with Dynatrace OneAgent
+  hosts: app
+  become: true
+  vars_files:
+    - vars/main.yml
+  tasks:
+    - name: Install Dynatrace OneAgent
+      dynatrace.oneagent.oneagent:
+        api_url: "{{ vault_oneagent_environment_url }}"
+        api_token: "{{ vault_oneagent_paas_token }}"
+        host_group: "{{ project_name }}-app"
+        install_log_content_access: true
+        state: present
+      register: dynatrace_agent
+
+    - name: Ensure Dynatrace OneAgent is running
+      ansible.builtin.systemd:
+        name: oneagent
+        state: started
+        enabled: true
+      when: dynatrace_agent.changed
+
