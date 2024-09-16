@@ -1,7 +1,7 @@
 ---
 - name: Configure App Hosts with Dynatrace OneAgent
-  hosts: localhost
-  become: false
+  hosts: app
+  become: true
   vars_files:
     - vars/main.yml
   tasks:
