@@ -35,4 +35,4 @@
         debug:
           msg: >
             Nginx service recovered on host {{ event.payload.hostname.split }}
-            at {{ event.payload.date | int | to_datetime }}
+
