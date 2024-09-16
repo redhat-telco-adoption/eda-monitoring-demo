@@ -34,23 +34,23 @@
         msg: "Failed to start Nginx service on {{ inventory_hostname }}. Manual intervention required."
       when: nginx_verification.state != "started"
 
-    - name: Update Datadog event with remediation status
-      community.general.datadog_event:
-        api_key: "{{ vault_datadog_api_key }}"
-        app_key: "{{ vault_datadog_app_key }}"
-        title: "Nginx Remediation on {{ inventory_hostname }}"
-        text: >
-          {% if nginx_verification.state == "started" %}
-          Nginx service on {{ inventory_hostname }} has been successfully started.
-          {% else %}
-          Failed to start Nginx service on {{ inventory_hostname }}. Manual intervention required.
-          {% endif %}
-          Alert details: {{ alert_title }}
-          Alert triggered at: {{ alert_timestamp | int | to_datetime }}
-        alert_type: "{{ 'success' if nginx_verification.state == 'started' else 'error' }}"
-        date_happened: "{{ ansible_date_time.epoch | int }}"
-        host: "{{ inventory_hostname }}"
-        tags:
-          - "project:eda-monitoring-demo"
-          - "role:web"
-          - "service:nginx"
+#    - name: Update Datadog event with remediation status
+#      community.general.datadog_event:
+#        api_key: "{{ vault_datadog_api_key }}"
+#        app_key: "{{ vault_datadog_app_key }}"
+#        title: "Nginx Remediation on {{ inventory_hostname }}"
+#        text: >
+#          {% if nginx_verification.state == "started" %}
+#          Nginx service on {{ inventory_hostname }} has been successfully started.
+#          {% else %}
+#          Failed to start Nginx service on {{ inventory_hostname }}. Manual intervention required.
+#          {% endif %}
+#          Alert details: {{ alert_title }}
+#          Alert triggered at: {{ alert_timestamp | int | to_datetime }}
+#        alert_type: "{{ 'success' if nginx_verification.state == 'started' else 'error' }}"
+#        date_happened: "{{ ansible_date_time.epoch | int }}"
+#        host: "{{ inventory_hostname }}"
+#        tags:
+#          - "project:eda-monitoring-demo"
+#          - "role:web"
+#          - "service:nginx"
