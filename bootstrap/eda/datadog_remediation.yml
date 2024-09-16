@@ -1,6 +1,6 @@
 ---
 - name: Remediate Nginx Service
-  hosts: "{{ target_host }}"
+  hosts: all
   become: true
   gather_facts: false
 
