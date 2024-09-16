@@ -8,7 +8,7 @@
         endpoint: /datadog-webhook
       filters:
         - ansible.eda.insert_hosts_to_meta:
-            host_path: event.payload.hostname
+            host_path: payload.hostname
 
   rules:
     - name: Remediate Nginx service
