@@ -8,3 +8,4 @@ collections:
   - name: datadog.dd
   - name: infra.eda_configuration
   - name: dynatrace.oneagent
+  - name: servicenow.itsm
