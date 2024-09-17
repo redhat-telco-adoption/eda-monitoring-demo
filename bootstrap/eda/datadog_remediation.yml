@@ -4,7 +4,28 @@
   become: true
   gather_facts: false
 
+  vars_files:
+    - vars/main.yml
+
   tasks:
+    - name: Create ServiceNow Incident
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: new
+        caller: "admin"
+        short_description: "Test Alert"
+        description: "This is a test alert"
+        impact: "high"
+        urgency: "high"
+        other:
+          comments: "Alert received by Red Hat EDA, triaging the issue"
+      register: snow_incident
+      tags:
+        - servicenow
+
     - name: Check Nginx service status
       ansible.builtin.service:
         name: nginx
@@ -23,6 +44,35 @@
         name: nginx
         state: started
       register: nginx_verification
+
+    - name: Update ServiceNow Incident - Remediation Successful
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: resolved
+        number: "{{ snow_incident.record.number }}"
+        close_code: "Solved (Permanently)"
+        close_notes: "Nginx service has been successfully restarted and verified."
+        other:
+          work_notes: "Nginx service was down, the service was restarted by Ansible Automation Platform"
+          comments: "Nginx up and running please validate"
+      when: nginx_verification.state == "started"
+      tags:
+        - servicenow
+
+    - name: Update ServiceNow Incident - Remediation Failed
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: in_progress
+        number: "{{ snow_incident.record.number }}"
+        other:
+          work_notes: "Nginx service was down, Ansible Automation Platform attempted to restart the service without success"
+      when: nginx_verification.state != "started"
 
     - name: Send notification if remediation was successful
       ansible.builtin.debug:
