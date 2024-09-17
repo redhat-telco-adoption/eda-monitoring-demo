@@ -23,10 +23,14 @@
           organization: Default
           job_args:
             extra_vars:
-              target_host: "{{ event.payload.hostname }}"
+              alert_id: "{{ event.payload.alert_id }}"
               alert_title: "{{ event.payload.alert_title }}"
-              alert_message: "{{ event.payload.alert_message }}"
+              alert_status: "{{ event.payload.alert_status }}"
               alert_timestamp: "{{ event.payload.date }}"
+              target_host: "{{ event.payload.hostname }}"
+              alert_last_updated: "{{ event.payload.last_updated }}"
+              alert_message: "{{ event.payload.alert_message }}"
+              alert_link: "{{ event.payload.link }}"
 
     - name: Log Nginx recovery
       condition: >

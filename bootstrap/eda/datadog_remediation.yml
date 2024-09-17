@@ -16,8 +16,29 @@
           password: "{{ servicenow_password }}"
         state: new
         caller: "admin"
-        short_description: "Test Alert"
-        description: "This is a test alert"
+        short_description: "[ALERT] Nginx Service Down"
+        description: |
+          DataDog has reported that the Nginx service is not running on {{ inventory_hostname }}.
+
+          Alert details:
+          - Monitor Name: Nginx Service Check
+          - Host: {{ inventory_hostname }}
+          - Alert Status: {{ alert_status }}
+          - Triggered at: {{ alert_timestap }}
+          - Last check: {{ alert_last_updated }}
+
+          Error: The Nginx process is not running or is unresponsive.
+
+          Potential impact:
+          - Web services may be unavailable
+          - Incoming HTTP requests may fail
+          - Load balancing could be affected
+
+          This alert requires immediate attention. Automated remediation has been initiated.
+
+          Alert ID: {{ alert_id }}
+          DataDog Alert Link: {{ alert_link }}
+
         impact: "high"
         urgency: "high"
         other:
