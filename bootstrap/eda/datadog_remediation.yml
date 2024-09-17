@@ -25,6 +25,7 @@
           - Host: {{ inventory_hostname }}
           - Alert Status: {{ alert_status }}
           - Triggered at: {{ alert_timestamp }}
+          {{ '%Y-%m-%d %H:%M:%S' | strftime(alert_timestamp) }}
           - Last check: {{ alert_last_updated }}
 
           Error: The Nginx process is not running or is unresponsive.
