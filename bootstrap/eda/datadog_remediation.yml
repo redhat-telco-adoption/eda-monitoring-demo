@@ -48,6 +48,25 @@
       tags:
         - servicenow
 
+    - name: Send initial Slack notification
+      community.general.slack:
+        token: "{{ vault_slack_token }}"
+        channel: "#incident-alerts"
+        msg: |
+          :warning: *New Alert: Nginx Service Down on {{ inventory_hostname }}*
+          Alert Status: {{ alert_status }}
+          Triggered at: {{ alert_timestamp }}
+          ServiceNow Incident: {{ snow_incident.record.number }}
+
+          Automated remediation is being attempted.
+
+          Alert ID: {{ alert_id }}
+          DataDog Alert Link: {{ alert_link }}
+      tags:
+        - always
+        - slack
+        - initial_notification
+
     - name: Check Nginx service status
       ansible.builtin.service:
         name: nginx
@@ -114,6 +133,29 @@
       tags:
         - servicenow
 
+    - name: Send Slack notification - Remediation Successful
+      community.general.slack:
+        token: "{{ vault_slack_token }}"
+        channel: "#incident-alerts"
+        msg: |
+          :white_check_mark: *Alert Resolved: Nginx Service Restored on {{ inventory_hostname }}*
+          Resolution Time: {{ ansible_date_time.iso8601 }}
+          ServiceNow Incident: {{ snow_incident.record.number }} (Resolved)
+
+          Nginx service has been successfully restarted and verified.
+          No further action is required.
+
+          Alert ID: {{ alert_id }}
+          DataDog Alert Link: {{ alert_link }}
+
+          Ansible Job ID: {{ tower_job_id }}
+          Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
+      when: nginx_verification.state == "started"
+      tags:
+        - slack
+        - notification
+        - success
+
     - name: Update ServiceNow Incident - Remediation Failed
       servicenow.itsm.incident:
         instance:
@@ -131,10 +173,10 @@
             Incident Details:
             - Host: {{ inventory_hostname }}
             - Service: Nginx
-            - Initial Alert Time: 2023-09-17 15:23:45 UTC
-            - Remediation Attempt Time: 2023-09-17 15:25:30 UTC
+            - Initial Alert Time: {{ alert_timestamp }}
+            - Remediation Attempt Time: {{ ansible_date_time.iso8601 }}
             - Current Status: Service still down
-            - Time Since Initial Alert: 30 minutes
+            - Time Since Initial Alert: {{ (ansible_date_time.epoch | int - alert_timestamp | int) // 60 }} minutes
 
             Failed Remediation Actions:
             1. Ansible Automation Platform triggered remediation playbook
@@ -167,34 +209,33 @@
 
             URGENT: Immediate action required. Please acknowledge this alert and update the incident status.
       when: nginx_verification.state != "started"
+      tags:
+        - servicenow
+        - failure
 
-    - name: Send notification if remediation was successful
-      ansible.builtin.debug:
-        msg: "Nginx service on {{ inventory_hostname }} has been successfully started."
-      when: nginx_verification.state == "started"
+    - name: Send Slack notification - Remediation Failed
+      community.general.slack:
+        token: "{{ vault_slack_token }}"
+        channel: "#incident-alerts"
+        msg: |
+          :x: *Alert Unresolved: Nginx Service Still Down on {{ inventory_hostname }}*
+          Last Attempt: {{ ansible_date_time.iso8601 }}
+          ServiceNow Incident: {{ snow_incident.record.number }} (In Progress)
 
-    - name: Send alert if remediation failed
-      ansible.builtin.debug:
-        msg: "Failed to start Nginx service on {{ inventory_hostname }}. Manual intervention required."
+          Automated remediation failed to restart the Nginx service.
+          Manual intervention is required immediately.
+
+          Alert ID: {{ alert_id }}
+          DataDog Alert Link: {{ alert_link }}
+
+          Ansible Job ID: {{ tower_job_id }}
+          Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
+
+          Please check the ServiceNow incident for more details.
       when: nginx_verification.state != "started"
+      tags:
+        - slack
+        - notification
+        - failure
 
-#    - name: Update Datadog event with remediation status
-#      community.general.datadog_event:
-#        api_key: "{{ vault_datadog_api_key }}"
-#        app_key: "{{ vault_datadog_app_key }}"
-#        title: "Nginx Remediation on {{ inventory_hostname }}"
-#        text: >
-#          {% if nginx_verification.state == "started" %}
-#          Nginx service on {{ inventory_hostname }} has been successfully started.
-#          {% else %}
-#          Failed to start Nginx service on {{ inventory_hostname }}. Manual intervention required.
-#          {% endif %}
-#          Alert details: {{ alert_title }}
-#          Alert triggered at: {{ alert_timestamp | int | to_datetime }}
-#        alert_type: "{{ 'success' if nginx_verification.state == 'started' else 'error' }}"
-#        date_happened: "{{ ansible_date_time.epoch | int }}"
-#        host: "{{ inventory_hostname }}"
-#        tags:
-#          - "project:eda-monitoring-demo"
-#          - "role:web"
-#          - "service:nginx"
+ 
