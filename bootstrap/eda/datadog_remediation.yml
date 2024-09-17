@@ -24,7 +24,7 @@
           - Monitor Name: Nginx Service Check
           - Host: {{ inventory_hostname }}
           - Alert Status: {{ alert_status }}
-          - Triggered at: {{ alert_timestap }}
+          - Triggered at: {{ alert_timestamp }}
           - Last check: {{ alert_last_updated }}
 
           Error: The Nginx process is not running or is unresponsive.
