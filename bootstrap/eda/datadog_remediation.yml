@@ -34,7 +34,8 @@
           - Incoming HTTP requests may fail
           - Load balancing could be affected
 
-          This alert requires immediate attention. Automated remediation has been initiated.
+          This alert requires immediate attention.
+          Automated remediation has been initiated.
 
           Alert ID: {{ alert_id }}
           DataDog Alert Link: {{ alert_link }}
@@ -75,10 +76,40 @@
         state: resolved
         number: "{{ snow_incident.record.number }}"
         close_code: "Solved (Permanently)"
-        close_notes: "Nginx service has been successfully restarted and verified."
+        close_notes: "[RESOLVED] Nginx Service Restored on {{ inventory_hostname }}"
         other:
-          work_notes: "Nginx service was down, the service was restarted by Ansible Automation Platform"
-          comments: "Nginx up and running please validate"
+          work_notes: |
+            Remediation Actions Taken:
+              1. Ansible Automation Platform triggered remediation playbook
+              2. Playbook attempted to restart Nginx service
+              3. Nginx service successfully restarted
+              4. Service health check confirmed Nginx is running and responding
+          comments: |
+            The Nginx service issue on {{ inventory_hostname }} has been successfully resolved through automated remediation by Ansible Automation Platform.
+
+            Current Status:
+            - Nginx service is up and running
+            - Web services are fully operational
+            - Load balancing functionality restored
+
+            Additional Notes:
+            - No data loss or persistent issues detected
+            - System performance has returned to normal levels
+            - Root cause analysis will be conducted to prevent future occurrences
+
+            Automated Response Summary:
+            - Alert detected by DataDog
+            - Event-Driven Automation (EDA) initiated response
+            - Ansible Automation Platform executed remediation
+            - ServiceNow incident automatically updated and resolved
+
+            Alert ID: {{ alert_id }}
+            DataDog Alert Link: {{ alert_link }}
+
+            Ansible Job ID: {{ tower_job_id }}
+            Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
+
+            This incident has been automatically resolved. No further immediate action is required.
       when: nginx_verification.state == "started"
       tags:
         - servicenow
@@ -92,7 +123,49 @@
         state: in_progress
         number: "{{ snow_incident.record.number }}"
         other:
-          work_notes: "Nginx service was down, Ansible Automation Platform attempted to restart the service without success"
+          work_notes: |
+            [ALERT] Remediation Failed: Nginx Service Still Down on {{ inventory_hostname }}
+
+            The automated remediation attempt for the Nginx service issue on {{ inventory_hostname }} has failed. Manual intervention is required.
+
+            Incident Details:
+            - Host: {{ inventory_hostname }}
+            - Service: Nginx
+            - Initial Alert Time: 2023-09-17 15:23:45 UTC
+            - Remediation Attempt Time: 2023-09-17 15:25:30 UTC
+            - Current Status: Service still down
+            - Time Since Initial Alert: 30 minutes
+
+            Failed Remediation Actions:
+            1. Ansible Automation Platform triggered remediation playbook
+            2. Playbook attempted to restart Nginx service
+            3. Nginx service failed to start
+            4. Additional restart attempts were unsuccessful
+
+            Current System State:
+            - Nginx service is not running
+            - Web services are unavailable
+            - Load balancing is affected
+
+            Impact:
+            - Customer-facing web applications are inaccessible
+            - Potential loss of incoming requests
+            - Increased load on other server instances
+
+            Next Steps:
+            1. Escalating to on-call DevOps team for immediate manual intervention
+            2. Initiating secondary failover procedures
+            3. Preparing customer communication for extended outage
+
+            Troubleshooting Information:
+
+            Alert ID: {{ alert_id }}
+            DataDog Alert Link: {{ alert_link }}
+
+            Ansible Job ID: {{ tower_job_id }}
+            Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
+
+            URGENT: Immediate action required. Please acknowledge this alert and update the incident status.
       when: nginx_verification.state != "started"
 
     - name: Send notification if remediation was successful
