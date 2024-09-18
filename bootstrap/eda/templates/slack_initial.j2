@@ -1,0 +1,10 @@
+{# templates/slack_initial.j2 #}
+:warning: *New Alert: Nginx Service Down on {{ inventory_hostname }}*
+Alert Status: {{ alert_status }}
+Triggered at: {{ alert_timestamp }}
+ServiceNow Incident: {{ snow_incident.record.number }}
+
+Automated remediation is being attempted.
+
+Alert ID: {{ alert_id }}
+DataDog Alert Link: {{ alert_link }}

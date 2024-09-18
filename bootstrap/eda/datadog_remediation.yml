@@ -7,233 +7,165 @@
   vars_files:
     - vars/main.yml
 
+  vars:
+    max_retries: 3
+    retry_delay: 30
+
   tasks:
-    - name: Create ServiceNow Incident
-      servicenow.itsm.incident:
-        instance:
-          host: "{{ servicenow_instance }}"
-          username: "{{ servicenow_username }}"
-          password: "{{ servicenow_password }}"
-        state: new
-        caller: "admin"
-        short_description: "[ALERT] Nginx Service Down"
-        description: |
-          DataDog has reported that the Nginx service is not running on {{ inventory_hostname }}.
+    - name: Remediation and notification block
+      block:
+        - name: Create ServiceNow Incident
+          servicenow.itsm.incident:
+            instance:
+              host: "{{ servicenow_instance }}"
+              username: "{{ servicenow_username }}"
+              password: "{{ servicenow_password }}"
+            state: new
+            caller: "admin"
+            short_description: "[ALERT] Nginx Service Down"
+            description: "{{ lookup('template', 'templates/servicenow_initial.j2') }}"
+            impact: "high"
+            urgency: "high"
+            other:
+              comments: "Alert received by Red Hat EDA, triaging the issue"
+          register: snow_incident
+          tags:
+            - servicenow
+            - always
 
-          Alert details:
-          - Monitor Name: Nginx Service Check
-          - Host: {{ inventory_hostname }}
-          - Alert Status: {{ alert_status }}
-          - Triggered at: {{ alert_timestamp }}
-          - Last check: {{ alert_last_updated }}
+        - name: Send initial Slack notification
+          community.general.slack:
+            token: "{{ vault_slack_token }}"
+            channel: "#incident-alerts"
+            msg: "{{ lookup('template', 'templates/slack_initial.j2') }}"
+          tags:
+            - always
+            - slack
+            - initial_notification
 
-          Error: The Nginx process is not running or is unresponsive.
+        - name: Check Nginx service status
+          ansible.builtin.service:
+            name: nginx
+            state: started
+          register: nginx_status
+          ignore_errors: true
 
-          Potential impact:
-          - Web services may be unavailable
-          - Incoming HTTP requests may fail
-          - Load balancing could be affected
+        - name: Start Nginx service if it's down
+          ansible.builtin.service:
+            name: nginx
+            state: started
+          when: nginx_status.failed
 
-          This alert requires immediate attention.
-          Automated remediation has been initiated.
+        - name: Verify Nginx service is running
+          ansible.builtin.service:
+            name: nginx
+            state: started
+          register: nginx_verification
 
-          Alert ID: {{ alert_id }}
-          DataDog Alert Link: {{ alert_link }}
+        - name: Update ServiceNow Incident - Remediation Successful
+          servicenow.itsm.incident:
+            instance:
+              host: "{{ servicenow_instance }}"
+              username: "{{ servicenow_username }}"
+              password: "{{ servicenow_password }}"
+            state: resolved
+            number: "{{ snow_incident.record.number }}"
+            close_code: "Solved (Permanently)"
+            close_notes: "[RESOLVED] Nginx Service Restored on {{ inventory_hostname }}"
+            other:
+              comments: "{{ lookup('template', 'templates/servicenow_success.j2') }}"
+          when: nginx_verification.state == "started"
+          tags:
+            - servicenow
 
-        impact: "high"
-        urgency: "high"
-        other:
-          comments: "Alert received by Red Hat EDA, triaging the issue"
-      register: snow_incident
-      tags:
-        - servicenow
+        - name: Send Slack notification - Remediation Successful
+          community.general.slack:
+            token: "{{ vault_slack_token }}"
+            channel: "#incident-alerts"
+            msg: "{{ lookup('template', 'templates/slack_success.j2') }}"
+          when: nginx_verification.state == "started"
+          tags:
+            - slack
+            - notification
+            - success
 
-    - name: Send initial Slack notification
-      community.general.slack:
-        token: "{{ vault_slack_token }}"
-        channel: "#incident-alerts"
-        msg: |
-          :warning: *New Alert: Nginx Service Down on {{ inventory_hostname }}*
-          Alert Status: {{ alert_status }}
-          Triggered at: {{ alert_timestamp }}
-          ServiceNow Incident: {{ snow_incident.record.number }}
+      rescue:
+        - name: Collect system information
+          tags:
+            - system_info
+          block:
+            - name: Check Nginx configuration
+              ansible.builtin.shell:
+                cmd: nginx -t
+              register: nginx_config_check
+              changed_when: false
+              ignore_errors: true
 
-          Automated remediation is being attempted.
+            - name: Check Nginx error log
+              ansible.builtin.command:
+                cmd: tail -n 100 /var/log/nginx/error.log
+              register: nginx_error_log
+              ignore_errors: true
+              changed_when: false
 
-          Alert ID: {{ alert_id }}
-          DataDog Alert Link: {{ alert_link }}
-      tags:
-        - always
-        - slack
-        - initial_notification
+            - name: Check system memory
+              ansible.builtin.command:
+                cmd: free -m
+              register: system_memory
+              ignore_errors: true
+              changed_when: false
 
-    - name: Check Nginx service status
-      ansible.builtin.service:
-        name: nginx
-        state: started
-      register: nginx_status
-      ignore_errors: true
+            - name: Check disk usage
+              ansible.builtin.command:
+                cmd: df -h
+              register: disk_usage
+              ignore_errors: true
+              changed_when: false
 
-    - name: Start Nginx service if it's down
-      ansible.builtin.service:
-        name: nginx
-        state: started
-      when: nginx_status.failed
+            - name: Check running processes
+              ansible.builtin.command:
+                cmd: ps aux
+              register: running_processes
+              ignore_errors: true
+              changed_when: false
 
-    - name: Verify Nginx service is running
-      ansible.builtin.service:
-        name: nginx
-        state: started
-      register: nginx_verification
+        - name: Update ServiceNow Incident - Remediation Failed
+          servicenow.itsm.incident:
+            instance:
+              host: "{{ servicenow_instance }}"
+              username: "{{ servicenow_username }}"
+              password: "{{ servicenow_password }}"
+            state: in_progress
+            number: "{{ snow_incident.record.number }}"
+            other:
+              work_notes: "{{ lookup('template', 'templates/servicenow_failure.j2') }}"
+          register: snow_update_result
+          failed_when: snow_update_result.failed and not snow_update_result.changed
+          tags:
+            - servicenow
+            - failure
 
-    - name: Update ServiceNow Incident - Remediation Successful
-      servicenow.itsm.incident:
-        instance:
-          host: "{{ servicenow_instance }}"
-          username: "{{ servicenow_username }}"
-          password: "{{ servicenow_password }}"
-        state: resolved
-        number: "{{ snow_incident.record.number }}"
-        close_code: "Solved (Permanently)"
-        close_notes: "[RESOLVED] Nginx Service Restored on {{ inventory_hostname }}"
-        other:
-          work_notes: |
-            Remediation Actions Taken:
-              1. Ansible Automation Platform triggered remediation playbook
-              2. Playbook attempted to restart Nginx service
-              3. Nginx service successfully restarted
-              4. Service health check confirmed Nginx is running and responding
-          comments: |
-            The Nginx service issue on {{ inventory_hostname }} has been successfully resolved through automated remediation by Ansible Automation Platform.
+        - name: Send Slack notification - Remediation Failed
+          community.general.slack:
+            token: "{{ vault_slack_token }}"
+            channel: "#incident-alerts"
+            msg: "{{ lookup('template', 'templates/slack_failure.j2') }}"
+          register: slack_failure_result
+          failed_when: slack_failure_result is failed and slack_failure_result.msg != "No message to send"
+          tags:
+            - slack
+            - notification
+            - failure
 
-            Current Status:
-            - Nginx service is up and running
-            - Web services are fully operational
-            - Load balancing functionality restored
-
-            Additional Notes:
-            - No data loss or persistent issues detected
-            - System performance has returned to normal levels
-            - Root cause analysis will be conducted to prevent future occurrences
-
-            Automated Response Summary:
-            - Alert detected by DataDog
-            - Event-Driven Automation (EDA) initiated response
-            - Ansible Automation Platform executed remediation
-            - ServiceNow incident automatically updated and resolved
-
-            Alert ID: {{ alert_id }}
-            DataDog Alert Link: {{ alert_link }}
-
-            Ansible Job ID: {{ tower_job_id }}
-            Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
-
-            This incident has been automatically resolved. No further immediate action is required.
-      when: nginx_verification.state == "started"
-      tags:
-        - servicenow
-
-    - name: Send Slack notification - Remediation Successful
-      community.general.slack:
-        token: "{{ vault_slack_token }}"
-        channel: "#incident-alerts"
-        msg: |
-          :white_check_mark: *Alert Resolved: Nginx Service Restored on {{ inventory_hostname }}*
-          Resolution Time: {{ ansible_date_time.iso8601 }}
-          ServiceNow Incident: {{ snow_incident.record.number }} (Resolved)
-
-          Nginx service has been successfully restarted and verified.
-          No further action is required.
-
-          Alert ID: {{ alert_id }}
-          DataDog Alert Link: {{ alert_link }}
-
-          Ansible Job ID: {{ tower_job_id }}
-          Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
-      when: nginx_verification.state == "started"
-      tags:
-        - slack
-        - notification
-        - success
-
-    - name: Update ServiceNow Incident - Remediation Failed
-      servicenow.itsm.incident:
-        instance:
-          host: "{{ servicenow_instance }}"
-          username: "{{ servicenow_username }}"
-          password: "{{ servicenow_password }}"
-        state: in_progress
-        number: "{{ snow_incident.record.number }}"
-        other:
-          work_notes: |
-            [ALERT] Remediation Failed: Nginx Service Still Down on {{ inventory_hostname }}
-
-            The automated remediation attempt for the Nginx service issue on {{ inventory_hostname }} has failed. Manual intervention is required.
-
-            Incident Details:
-            - Host: {{ inventory_hostname }}
-            - Service: Nginx
-            - Initial Alert Time: {{ alert_timestamp }}
-            - Remediation Attempt Time: {{ ansible_date_time.iso8601 }}
-            - Current Status: Service still down
-            - Time Since Initial Alert: {{ (ansible_date_time.epoch | int - alert_timestamp | int) // 60 }} minutes
-
-            Failed Remediation Actions:
-            1. Ansible Automation Platform triggered remediation playbook
-            2. Playbook attempted to restart Nginx service
-            3. Nginx service failed to start
-            4. Additional restart attempts were unsuccessful
-
-            Current System State:
-            - Nginx service is not running
-            - Web services are unavailable
-            - Load balancing is affected
-
-            Impact:
-            - Customer-facing web applications are inaccessible
-            - Potential loss of incoming requests
-            - Increased load on other server instances
-
-            Next Steps:
-            1. Escalating to on-call DevOps team for immediate manual intervention
-            2. Initiating secondary failover procedures
-            3. Preparing customer communication for extended outage
-
-            Troubleshooting Information:
-
-            Alert ID: {{ alert_id }}
-            DataDog Alert Link: {{ alert_link }}
-
-            Ansible Job ID: {{ tower_job_id }}
-            Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
-
-            URGENT: Immediate action required. Please acknowledge this alert and update the incident status.
-      when: nginx_verification.state != "started"
-      tags:
-        - servicenow
-        - failure
-
-    - name: Send Slack notification - Remediation Failed
-      community.general.slack:
-        token: "{{ vault_slack_token }}"
-        channel: "#incident-alerts"
-        msg: |
-          :x: *Alert Unresolved: Nginx Service Still Down on {{ inventory_hostname }}*
-          Last Attempt: {{ ansible_date_time.iso8601 }}
-          ServiceNow Incident: {{ snow_incident.record.number }} (In Progress)
-
-          Automated remediation failed to restart the Nginx service.
-          Manual intervention is required immediately.
-
-          Alert ID: {{ alert_id }}
-          DataDog Alert Link: {{ alert_link }}
-
-          Ansible Job ID: {{ tower_job_id }}
-          Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
-
-          Please check the ServiceNow incident for more details.
-      when: nginx_verification.state != "started"
-      tags:
-        - slack
-        - notification
-        - failure
+      always:
+        - name: Final Slack notification
+          community.general.slack:
+            token: "{{ vault_slack_token }}"
+            channel: "#incident-alerts"
+            msg: "{{ lookup('template', 'templates/slack_final.j2') }}"
+          register: slack_final_result
+          failed_when: false
+          tags:
+            - slack
+            - notification
+            - always

@@ -1,0 +1,45 @@
+{# templates/servicenow_failure.j2 #}
+[ALERT] Remediation Failed: Nginx Service Still Down on {{ inventory_hostname }}
+
+The automated remediation attempt for the Nginx service issue on {{ inventory_hostname }} has failed. Manual intervention is required.
+
+Incident Details:
+- Host: {{ inventory_hostname }}
+- Service: Nginx
+- Initial Alert Time: {{ alert_timestamp }}
+- Remediation Attempt Time: {{ ansible_date_time.iso8601 }}
+- Current Status: Service still down
+- Time Since Initial Alert: {{ (ansible_date_time.epoch | int - alert_timestamp | int) // 60 }} minutes
+
+Failed Remediation Actions:
+1. Ansible Automation Platform triggered remediation playbook
+2. Playbook attempted to restart Nginx service
+3. Nginx service failed to start
+4. Additional restart attempts were unsuccessful
+
+Troubleshooting Information:
+Nginx Config Check: {{ nginx_config_check.stdout | default('N/A') }}
+
+Nginx Error Log:
+{% if nginx_error_log.stdout | default('') | trim != '' %}
+{{ nginx_error_log.stdout }}
+{% else %}
+No recent errors found in Nginx error log.
+{% endif %}
+
+System Memory:
+{{ system_memory.stdout | default('N/A') }}
+
+Disk Usage:
+{{ disk_usage.stdout | default('N/A') }}
+
+Running Processes:
+{{ running_processes.stdout | default('N/A') }}
+
+Alert ID: {{ alert_id }}
+DataDog Alert Link: {{ alert_link }}
+
+Ansible Job ID: {{ tower_job_id }}
+Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
+
+URGENT: Immediate action required. Please acknowledge this alert and update the incident status.

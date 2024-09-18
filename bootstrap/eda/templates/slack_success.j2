@@ -1,0 +1,13 @@
+{# templates/slack_success.j2 #}
+:white_check_mark: *Alert Resolved: Nginx Service Restored on {{ inventory_hostname }}*
+Resolution Time: {{ ansible_date_time.iso8601 }}
+ServiceNow Incident: {{ snow_incident.record.number }} (Resolved)
+
+Nginx service has been successfully restarted and verified.
+No further action is required.
+
+Alert ID: {{ alert_id }}
+DataDog Alert Link: {{ alert_link }}
+
+Ansible Job ID: {{ tower_job_id }}
+Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output

@@ -1,0 +1,32 @@
+{# templates/servicenow_success.j2 #}
+Remediation Actions Taken:
+  1. Ansible Automation Platform triggered remediation playbook
+  2. Playbook attempted to restart Nginx service
+  3. Nginx service successfully restarted
+  4. Service health check confirmed Nginx is running and responding
+
+The Nginx service issue on {{ inventory_hostname }} has been successfully resolved through automated remediation by Ansible Automation Platform.
+
+Current Status:
+- Nginx service is up and running
+- Web services are fully operational
+- Load balancing functionality restored
+
+Additional Notes:
+- No data loss or persistent issues detected
+- System performance has returned to normal levels
+- Root cause analysis will be conducted to prevent future occurrences
+
+Automated Response Summary:
+- Alert detected by DataDog
+- Event-Driven Automation (EDA) initiated response
+- Ansible Automation Platform executed remediation
+- ServiceNow incident automatically updated and resolved
+
+Alert ID: {{ alert_id }}
+DataDog Alert Link: {{ alert_link }}
+
+Ansible Job ID: {{ tower_job_id }}
+Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
+
+This incident has been automatically resolved. No further immediate action is required.

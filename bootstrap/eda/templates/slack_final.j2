@@ -1,0 +1,12 @@
+{# templates/slack_final.j2 #}
+:information_source: *Nginx Service Remediation Playbook Completed*
+Host: {{ inventory_hostname }}
+Completion Time: {{ ansible_date_time.iso8601 }}
+ServiceNow Incident: {{ snow_incident.record.number }}
+Final Status: {{ 'Success' if nginx_verification.state == "started" else 'Failed' }}
+
+Alert ID: {{ alert_id }}
+DataDog Alert Link: {{ alert_link }}
+
+Ansible Job ID: {{ tower_job_id }}
+Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output

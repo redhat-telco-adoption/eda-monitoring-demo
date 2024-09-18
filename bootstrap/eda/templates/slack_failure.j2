@@ -1,0 +1,20 @@
+{x: *Alert Unresolved: Nginx Service Still Down on {{ inventory_hostname }}*}
+Last Attempt: {{ ansible_date_time.iso8601 }}
+ServiceNow Incident: {{ snow_incident.record.number }} (In Progress)
+
+Automated remediation failed to restart the Nginx service.
+Manual intervention is required immediately.
+
+{% if nginx_error_log.stdout | default('') | trim != '' %}
+Recent Nginx Errors:
+{{ nginx_error_log.stdout | truncate(300) }}
+{% else %}
+No recent errors found in Nginx error log.
+{% endif %}
+
+Alert ID: {{ alert_id }}
+DataDog Alert Link: {{ alert_link }}
+
+Ansible Job ID: {{ tower_job_id }}
+Ansible Automation Platform Link: https://controller.sandbox3015.opentlc.com/#/jobs/playbook/{{ tower_job_id }}/output
+Please check the ServiceNow incident for more details.
